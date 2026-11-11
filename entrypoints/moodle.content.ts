@@ -1,4 +1,7 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
+import { App } from "../src/app";
+import { parsePage } from "../src/parse/page";
+import "../src/ui/styles.css";
 
 export default defineContentScript({
   matches: [
@@ -6,7 +9,16 @@ export default defineContentScript({
     "https://www.moodle.tum.de/course/section.php*",
   ],
   runAt: "document_idle",
-  main() {
-    console.log("[moodle-todo] loaded");
+  async main() {
+    const page = parsePage(document);
+    if (!page) {
+      console.warn("[moodle-todo] not a recognizable course page, doing nothing");
+      return;
+    }
+    const app = new App(document, page, {
+      isCoursePage: location.pathname.endsWith("/course/view.php"),
+      origin: location.origin,
+    });
+    await app.start();
   },
 });
