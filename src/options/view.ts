@@ -6,6 +6,10 @@ export interface OptionsData {
   /** All types to show toggles for, already ordered. */
   types: string[];
   courses: Array<{ id: number; data: CourseData }>;
+  /** Tracked progress per course, from the seen caches. */
+  progress: Array<{ id: number; done: number; total: number }>;
+  /** Base URL for course links, e.g. https://www.moodle.tum.de */
+  origin: string;
 }
 
 type CourseEntry = OptionsData["courses"][number];
@@ -33,6 +37,7 @@ const DESCRIPTIONS: Record<string, string> = {
 export function renderOptions(root: HTMLElement, data: OptionsData, actions: OptionsActions): void {
   // Re-rendering after every change must not collapse the course the user is editing.
   const open = new Set(Array.from(root.querySelectorAll<HTMLElement>("details[open][data-course]"), (d) => d.dataset.course));
+  const progressOpen = root.querySelector("details[open][data-panel=progress]") !== null;
   root.replaceChildren();
   const doc = root.ownerDocument;
 
@@ -57,6 +62,42 @@ export function renderOptions(root: HTMLElement, data: OptionsData, actions: Opt
   const sorted = [...data.courses].sort((a, b) => courseTitle(a).localeCompare(courseTitle(b)));
   for (const course of sorted) coursesSection.append(courseRow(doc, course, data, open.has(String(course.id)), actions));
   root.append(coursesSection);
+
+  if (sorted.length > 0) root.append(progressPanel(doc, sorted, data, progressOpen));
+}
+
+function progressPanel(doc: Document, courses: CourseEntry[], data: OptionsData, open: boolean): HTMLElement {
+  const panel = el(doc, "details", "panel progress-panel") as HTMLDetailsElement;
+  panel.dataset.panel = "progress";
+  panel.open = open;
+  const summary = el(doc, "summary", null);
+  summary.append(el(doc, "h2", null, "Progress"), el(doc, "span", "summary-hint", "Click a course to open it on Moodle"));
+  panel.append(summary);
+
+  const list = el(doc, "ul", "progress-list");
+  for (const course of courses) {
+    const p = data.progress.find((x) => x.id === course.id) ?? { done: 0, total: 0 };
+    const link = el(doc, "a", "progress-row") as HTMLAnchorElement;
+    link.href = `${data.origin}/course/view.php?id=${course.id}`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    if (p.total > 0 && p.done === p.total) link.classList.add("complete");
+    const top = el(doc, "span", "row-top");
+    top.append(
+      el(doc, "span", "name", courseTitle(course)),
+      el(doc, "span", "count", p.total > 0 ? `${p.done}/${p.total}` : "–"),
+    );
+    const bar = el(doc, "span", "bar");
+    const fill = el(doc, "span", "fill");
+    fill.style.width = `${p.total > 0 ? Math.round((p.done / p.total) * 100) : 0}%`;
+    bar.append(fill);
+    link.append(top, bar);
+    const item = el(doc, "li", null);
+    item.append(link);
+    list.append(item);
+  }
+  panel.append(list, el(doc, "p", "hint", "Counts include the items seen so far. Open a course once to complete its total."));
+  return panel;
 }
 
 function typeRow(doc: Document, type: string, value: Rule, actions: OptionsActions): HTMLElement {

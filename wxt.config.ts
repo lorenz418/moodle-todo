@@ -5,5 +5,6 @@ export default defineConfig({
     name: "Moodle Todo",
     description: "Check off lectures and problem sheets directly on TUM Moodle course pages.",
     permissions: ["storage"],
+    action: { default_title: "Moodle Todo settings" },
   },
 });
