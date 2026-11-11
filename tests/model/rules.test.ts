@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMenuAction, setGlobalTypeRule, menuState, resolveState, toggleDone } from "../../src/model/rules";
+import { applyMenuAction, setCourseTypeRule, setGlobalTypeRule, menuState, resolveState, toggleDone } from "../../src/model/rules";
 import { DEFAULT_GLOBAL, emptyCourse, type CourseData, type GlobalData } from "../../src/types";
 
 const forum = { cmid: 10, type: "forum" };
@@ -120,5 +120,15 @@ describe("setGlobalTypeRule", () => {
     setGlobalTypeRule(g, "forum", "track");
     setGlobalTypeRule(g, "url", "ignore");
     expect(g).toEqual({ typeRules: { forum: "ignore" } });
+  });
+});
+
+describe("setCourseTypeRule", () => {
+  it("sets a course rule and removes it with null, without mutating", () => {
+    const c = emptyCourse();
+    const ignored = setCourseTypeRule(c, "resource", "ignore");
+    expect(ignored.typeRules).toEqual({ resource: "ignore" });
+    expect(c.typeRules).toEqual({});
+    expect(setCourseTypeRule(ignored, "resource", null).typeRules).toEqual({});
   });
 });

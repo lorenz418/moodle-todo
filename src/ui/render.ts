@@ -35,6 +35,7 @@ export function render(doc: Document, model: RenderModel): void {
   }
   renderProgressBar(doc, model);
   alignControls(model.page);
+  if (!observers.has(doc)) watchLayout(doc, model.page);
 }
 
 /** Installs delegated event handlers once per document. */
@@ -120,7 +121,7 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
     if (!mark) {
       mark = doc.createElement("span");
       mark.className = "mtd-ignored-mark";
-      mark.title = "Ignored, not counted";
+      mark.title = "Not a task (ignored)";
       check.replaceChildren(mark);
     }
   } else {
@@ -278,13 +279,14 @@ function renderProgressBar(doc: Document, model: RenderModel): void {
 }
 
 /**
- * Lines the checkbox and menu button up with the activity icon, so they sit on
- * the title row even when a description makes the row taller. Reads all
- * positions first, then writes, to avoid layout thrashing. No-op without layout
- * (e.g. in tests).
+ * Centers the checkbox and the options button on the activity icon, so they sit
+ * on the title row even when a description follows. Moodle's padding differs
+ * between themes, so the offset is measured from where each control lands with
+ * no margin rather than from the row's edge. Reads all positions before writing
+ * any of them; skips rows that are not laid out (collapsed sections, jsdom).
  */
 function alignControls(page: ParsedPage): void {
-  const jobs: Array<{ els: HTMLElement[]; offset: number; height: number }> = [];
+  const rows: Array<{ els: HTMLElement[]; icon: HTMLElement }> = [];
   for (const section of page.sections) {
     for (const item of section.items) {
       const host = item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
@@ -292,16 +294,43 @@ function alignControls(page: ParsedPage): void {
       const els = [":scope > .mtd-check", ":scope > .mtd-menu-wrap"]
         .map((sel) => host.querySelector<HTMLElement>(sel))
         .filter((el): el is HTMLElement => el !== null);
-      if (!icon || els.length === 0) continue;
-      const iconRect = icon.getBoundingClientRect();
-      if (iconRect.height === 0) continue;
-      jobs.push({ els, offset: iconRect.top - host.getBoundingClientRect().top, height: iconRect.height });
+      if (icon && els.length > 0) rows.push({ els, icon });
+    }
+  }
+  for (const row of rows) for (const el of row.els) el.style.marginTop = "0px";
+  const jobs: Array<{ el: HTMLElement; margin: number; height: number }> = [];
+  for (const row of rows) {
+    const iconRect = row.icon.getBoundingClientRect();
+    if (iconRect.height === 0) continue;
+    for (const el of row.els) {
+      jobs.push({ el, margin: iconRect.top - el.getBoundingClientRect().top, height: iconRect.height });
     }
   }
   for (const job of jobs) {
-    for (const el of job.els) {
-      el.style.marginTop = `${Math.max(0, job.offset)}px`;
-      el.style.height = `${job.height}px`;
-    }
+    job.el.style.marginTop = `${Math.max(0, Math.round(job.margin))}px`;
+    job.el.style.height = `${job.height}px`;
   }
+}
+
+const observers = new WeakMap<Document, ResizeObserver>();
+
+/** Re-aligns when a section is expanded or the layout changes after the first render. */
+function watchLayout(doc: Document, page: ParsedPage): void {
+  const RO = doc.defaultView?.ResizeObserver;
+  if (!RO) return;
+  observers.get(doc)?.disconnect();
+  let queued = false;
+  const observer = new RO(() => {
+    if (queued) return;
+    queued = true;
+    doc.defaultView!.requestAnimationFrame(() => {
+      queued = false;
+      alignControls(page);
+    });
+  });
+  for (const section of page.sections) {
+    const el = section.items[0]?.el.closest("li.section") ?? null;
+    if (el) observer.observe(el);
+  }
+  observers.set(doc, observer);
 }

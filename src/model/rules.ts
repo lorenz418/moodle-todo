@@ -72,6 +72,14 @@ export function setGlobalTypeRule(global: GlobalData, type: string, value: Rule)
   return { ...global, typeRules };
 }
 
+/** Sets the course rule for `type`, or removes it with null so the global rule applies. Does not mutate `course`. */
+export function setCourseTypeRule(course: CourseData, type: string, value: Rule | null): CourseData {
+  const typeRules = { ...course.typeRules };
+  if (value === null) delete typeRules[type];
+  else typeRules[type] = value;
+  return { ...course, typeRules };
+}
+
 export function toggleDone(course: CourseData, cmid: number, done: boolean): CourseData {
   const set = new Set(course.done);
   if (done) set.add(cmid);

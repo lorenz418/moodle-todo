@@ -172,12 +172,71 @@ h2 {
 /* ---------- Courses ---------- */
 
 .course {
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.course-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 0;
-  border-top: 1px solid var(--line);
+}
+
+.course-rules {
+  margin-top: 0.5rem;
+}
+
+.course-rules summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+  color: var(--blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.course-rules summary::-webkit-details-marker {
+  display: none;
+}
+
+.course-rules summary::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.course-rules[open] summary::before {
+  transform: rotate(45deg) translate(-2px, -1px);
+}
+
+.course-rules summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.course-rules .type-list {
+  margin: 0.4rem 0 0.2rem;
+  padding: 0 0.9rem;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.course-rules .type-row:first-child {
+  border-top: none;
+}
+
+.course-rules .segment span {
+  min-width: 3.75rem;
 }
 
 .course-info {
@@ -244,7 +303,7 @@ h3 {
 
 @media (max-width: 560px) {
   .type-row,
-  .course {
+  .course-head {
     flex-direction: column;
     align-items: flex-start;
   }

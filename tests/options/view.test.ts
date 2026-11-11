@@ -15,14 +15,14 @@ function data(partial: Partial<OptionsData> = {}): OptionsData {
 }
 
 function actions(): OptionsActions {
-  return { setGlobalType: vi.fn(), resetCourseRules: vi.fn(), removeCourse: vi.fn() };
+  return { setGlobalType: vi.fn(), setCourseType: vi.fn(), resetCourseRules: vi.fn(), removeCourse: vi.fn() };
 }
 
 describe("renderOptions", () => {
   it("renders a toggle per type with the current global value", () => {
     const root = document.createElement("div");
     renderOptions(root, data(), actions());
-    const checked = root.querySelectorAll<HTMLInputElement>("input[type=radio][data-type]:checked");
+    const checked = root.querySelectorAll<HTMLInputElement>("input[type=radio][data-type]:not([data-course]):checked");
     expect(Array.from(checked).map((r) => [r.dataset.type, r.value])).toEqual([
       ["resource", "track"], ["forum", "ignore"], ["choice", "ignore"], ["h5pactivity", "track"],
     ]);
@@ -70,6 +70,31 @@ describe("renderOptions", () => {
     other.querySelector<HTMLButtonElement>('button[data-action="remove"]')!.click();
     expect(a.removeCourse).toHaveBeenCalledWith(8);
     vi.unstubAllGlobals();
+  });
+
+  it("sets course rules with Global, Track or Ignore, only for types seen in that course", () => {
+    const root = document.createElement("div");
+    const a = actions();
+    const courses = [{ id: 7, types: ["resource", "lti"], data: { ...emptyCourse(), name: "Nano", typeRules: { forum: "track" as const } } }];
+    renderOptions(root, data({ courses }), a);
+    document.body.append(root);
+    const radios = Array.from(root.querySelectorAll<HTMLInputElement>('input[data-course="7"]:checked'));
+    expect(radios.map((r) => [r.dataset.type, r.value])).toEqual([["resource", "global"], ["forum", "track"], ["lti", "global"]]);
+    expect(root.querySelector(".course-rules")!.textContent).toContain("Global setting: Ignore");
+    root.querySelector<HTMLInputElement>('input[data-course="7"][data-type="resource"][value="ignore"]')!.click();
+    root.querySelector<HTMLInputElement>('input[data-course="7"][data-type="forum"][value="global"]')!.click();
+    root.remove();
+    expect(a.setCourseType).toHaveBeenNthCalledWith(1, 7, "resource", "ignore");
+    expect(a.setCourseType).toHaveBeenNthCalledWith(2, 7, "forum", null);
+  });
+
+  it("keeps an open course open across re-renders", () => {
+    const root = document.createElement("div");
+    renderOptions(root, data(), actions());
+    root.querySelector<HTMLDetailsElement>('details[data-course="7"]')!.open = true;
+    renderOptions(root, data(), actions());
+    expect(root.querySelector<HTMLDetailsElement>('details[data-course="7"]')!.open).toBe(true);
+    expect(root.querySelector<HTMLDetailsElement>('details[data-course="8"]')!.open).toBe(false);
   });
 
   it("shows an empty state", () => {

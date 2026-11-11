@@ -90,7 +90,7 @@
 .mtd-ignored-mark {
   width: 1.25rem;
   height: 1.25rem;
-  background: #b3bdc7;
+  background: #d3d9e0;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / 0.9rem no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / 0.9rem no-repeat;
 }
@@ -111,13 +111,7 @@ li.activity.mtd-done .instancename {
   text-decoration-color: rgba(31, 41, 51, 0.45);
 }
 
-li.activity.mtd-ignored .activity-grid {
-  opacity: 0.38;
-}
-
-li.activity.mtd-ignored:hover .activity-grid {
-  opacity: 0.6;
-}
+/* Ignored items are not tasks: they keep Moodle's normal look, only the checkbox is missing. */
 
 /* ---------- Options button and menu ---------- */
 

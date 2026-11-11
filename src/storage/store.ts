@@ -113,6 +113,19 @@ export async function listCourses(): Promise<Array<{ id: number; data: CourseDat
   return result;
 }
 
+/** Module types per course, from the seen caches. */
+export async function listSeenTypesByCourse(): Promise<Map<number, string[]>> {
+  const result = new Map<number, string[]>();
+  const local = await storage.snapshot("local");
+  for (const [key, value] of Object.entries(local)) {
+    if (!key.startsWith(SEEN_PREFIX) || !value) continue;
+    const id = Number(key.slice(SEEN_PREFIX.length));
+    if (!Number.isFinite(id)) continue;
+    result.set(id, [...new Set(Object.values(value as SeenCache).map((info) => info.type))]);
+  }
+  return result;
+}
+
 /** Every module type that appears in any seen cache or any stored rule. */
 export async function listSeenTypes(): Promise<string[]> {
   const types = new Set<string>();
