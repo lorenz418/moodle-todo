@@ -21,6 +21,7 @@ function model(page: ParsedPage, overrides: Partial<RenderModel> = {}): RenderMo
     progress: computeProgress(seenFromPage(page), course, global),
     fallback: false,
     message: null,
+    disabled: false,
     ...overrides,
   };
 }
@@ -122,7 +123,7 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     const li = doc.getElementById("module-3979856")!;
     const wrap = li.querySelector(".mtd-menu-wrap")!;
     const btn = li.querySelector<HTMLButtonElement>(".mtd-menu-btn")!;
-    expect(btn.getAttribute("aria-haspopup")).toBe("menu");
+    expect(btn.hasAttribute("aria-haspopup")).toBe(false);
     expect(btn.getAttribute("aria-expanded")).toBe("false");
     btn.click();
     expect(wrap.classList.contains("mtd-open")).toBe(true);
@@ -165,7 +166,7 @@ describe("render on a onetopic course (Thermodynamics, Oct 27 tab)", () => {
       "3957910": { section: 4, type: "resource" },
     };
     const course = { ...emptyCourse(), done: [3957904, 3957930] };
-    render(doc, { page, course, global: DEFAULT_GLOBAL, progress: computeProgress(seen, course, DEFAULT_GLOBAL), fallback: false, message: null });
+    render(doc, { page, course, global: DEFAULT_GLOBAL, progress: computeProgress(seen, course, DEFAULT_GLOBAL), fallback: false, message: null, disabled: false });
     const tab4 = page.tabs!.find((t) => t.num === 4)!.el;
     const tab6 = page.tabs!.find((t) => t.num === 6)!.el;
     const tab0 = page.tabs!.find((t) => t.num === 0)!.el;

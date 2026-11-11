@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMenuAction, menuState, resolveState, toggleDone } from "../../src/model/rules";
+import { applyMenuAction, setGlobalTypeRule, menuState, resolveState, toggleDone } from "../../src/model/rules";
 import { DEFAULT_GLOBAL, emptyCourse, type CourseData, type GlobalData } from "../../src/types";
 
 const forum = { cmid: 10, type: "forum" };
@@ -103,5 +103,22 @@ describe("toggleDone", () => {
     expect(c.done).toEqual([20, 30]);
     c = toggleDone(c, 30, false);
     expect(c.done).toEqual([20]);
+  });
+});
+
+describe("setGlobalTypeRule", () => {
+  it("writes ignore", () => {
+    expect(setGlobalTypeRule({ typeRules: {} }, "url", "ignore").typeRules).toEqual({ url: "ignore" });
+  });
+
+  it("removes the rule for track", () => {
+    expect(setGlobalTypeRule({ typeRules: { forum: "ignore", url: "ignore" } }, "forum", "track").typeRules).toEqual({ url: "ignore" });
+  });
+
+  it("does not mutate the input", () => {
+    const g: GlobalData = { typeRules: { forum: "ignore" } };
+    setGlobalTypeRule(g, "forum", "track");
+    setGlobalTypeRule(g, "url", "ignore");
+    expect(g).toEqual({ typeRules: { forum: "ignore" } });
   });
 });

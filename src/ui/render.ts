@@ -11,6 +11,8 @@ export interface RenderModel {
   progress: CourseProgress | null;
   fallback: boolean;
   message: string | null;
+  /** True once the extension context is gone: controls are shown but cannot be used. */
+  disabled: boolean;
 }
 
 export interface Handlers {
@@ -108,6 +110,7 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
     }
     const box = check.querySelector<HTMLInputElement>(".mtd-checkbox")!;
     box.checked = state === "done";
+    box.disabled = model.disabled;
     box.setAttribute("aria-label", `Mark ${item.name} as done`);
   }
 
@@ -122,12 +125,12 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
     btn.className = "mtd-menu-btn";
     btn.title = "Ignore options";
     btn.setAttribute("aria-label", "Ignore options");
-    btn.setAttribute("aria-haspopup", "menu");
     btn.setAttribute("aria-expanded", "false");
     btn.textContent = "⋯";
     wrap.append(menu, btn);
     host.appendChild(wrap);
   }
+  wrap.querySelector<HTMLButtonElement>(".mtd-menu-btn")!.disabled = model.disabled;
   wrap.dataset.cmid = String(item.cmid);
   wrap.dataset.type = item.type;
   renderMenuItems(doc, wrap.querySelector(".mtd-menu")!, item, model);

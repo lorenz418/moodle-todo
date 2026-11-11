@@ -107,6 +107,7 @@ export class App {
       progress,
       fallback: this.fallback,
       message: this.message,
+      disabled: this.invalidated,
     });
   }
 
@@ -118,7 +119,8 @@ export class App {
     updateCourse(this.page.courseId, (c) => toggleDone(c, cmid, done)).catch((err: unknown) => {
       console.warn(`${TAG} could not save`, err);
       this.course = toggleDone(this.course, cmid, !done);
-      this.message = "Could not save, please try again";
+      // Keep the "reload the page" message if the context was invalidated meanwhile.
+      if (!this.invalidated) this.message = "Could not save, please try again";
       this.render();
     });
   }
@@ -141,7 +143,7 @@ export class App {
       console.warn(`${TAG} could not save`, err);
       this.course = previous.course;
       this.global = previous.global;
-      this.message = "Could not save, please try again";
+      if (!this.invalidated) this.message = "Could not save, please try again";
       this.render();
     });
   }

@@ -14,7 +14,10 @@ export interface SeenInput {
   section: number;
 }
 
-/** Serializes read-modify-write operations so back-to-back updates in one tab never drop each other. */
+/**
+ * Serializes read-modify-write operations so back-to-back updates in one tab never drop each other.
+ * A queued operation must never await another queued function (it would deadlock).
+ */
 let queue: Promise<unknown> = Promise.resolve();
 function serialized<T>(op: () => Promise<T>): Promise<T> {
   const p = queue.then(op);
@@ -118,6 +121,8 @@ export async function resetCourseRules(id: number): Promise<void> {
 }
 
 export async function removeCourse(id: number): Promise<void> {
-  await storage.removeItem(courseKey(id));
-  await storage.removeItem(seenKey(id));
+  await serialized(async () => {
+    await storage.removeItem(courseKey(id));
+    await storage.removeItem(seenKey(id));
+  });
 }

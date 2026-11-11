@@ -164,6 +164,8 @@ describe("App robustness", () => {
     controller.abort();
     const setSpy = vi.spyOn(fakeBrowser.storage.sync, "set");
     const box = doc.getElementById("module-3979856")!.querySelector<HTMLInputElement>(".mtd-checkbox")!;
+    expect(box.disabled).toBe(true);
+    expect(doc.querySelector<HTMLButtonElement>(".mtd-menu-btn")!.disabled).toBe(true);
     box.checked = true;
     box.dispatchEvent(new Event("change", { bubbles: true }));
     await flush();

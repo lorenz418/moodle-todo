@@ -76,3 +76,13 @@ describe("renderOptions", () => {
     expect(root.textContent).toContain("No courses yet");
   });
 });
+
+describe("renderOptions escaping", () => {
+  it("renders a hostile course name as text", () => {
+    const root = document.createElement("div");
+    const name = "<img src=x onerror=alert(1)>";
+    renderOptions(root, data({ courses: [{ id: 9, data: { ...emptyCourse(), name } }] }), actions());
+    expect(root.querySelector("img")).toBeNull();
+    expect(root.querySelector(".course h3")!.textContent).toBe(name);
+  });
+});

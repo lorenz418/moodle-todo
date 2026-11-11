@@ -64,6 +64,14 @@ export function applyMenuAction(
   return { course: nextCourse, global: nextGlobal };
 }
 
+/** Sets the global rule for `type`. "track" is the default, so it removes the rule. Does not mutate `global`. */
+export function setGlobalTypeRule(global: GlobalData, type: string, value: Rule): GlobalData {
+  const typeRules = { ...global.typeRules };
+  if (value === "track") delete typeRules[type];
+  else typeRules[type] = value;
+  return { ...global, typeRules };
+}
+
 export function toggleDone(course: CourseData, cmid: number, done: boolean): CourseData {
   const set = new Set(course.done);
   if (done) set.add(cmid);

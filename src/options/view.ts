@@ -65,7 +65,7 @@ export function renderOptions(root: HTMLElement, data: OptionsData, actions: Opt
     reset.dataset.action = "reset-rules";
     reset.title = "Removes course and item rules, keeps checkmarks";
     reset.addEventListener("click", () => {
-      if (confirm(`Reset all ignore rules for "${courseTitle(course)}"? Checkmarks are kept.`)) actions.resetCourseRules(course.id);
+      if (confirm(`Reset all rules for "${courseTitle(course)}"? Checkmarks are kept.`)) actions.resetCourseRules(course.id);
     });
     const remove = el(doc, "button", "danger", "Reset everything") as HTMLButtonElement;
     remove.type = "button";
