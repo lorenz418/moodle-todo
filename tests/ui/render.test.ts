@@ -107,6 +107,43 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     expect(li.querySelector(".mtd-menu")!.classList.contains("mtd-open")).toBe(false);
   });
 
+  it("places controls outside the activity grid", () => {
+    render(doc, model(page));
+    const li = doc.getElementById("module-3979856")!;
+    const grid = li.querySelector(".activity-grid")!;
+    expect(grid.previousElementSibling!.classList.contains("mtd-check")).toBe(true);
+    expect(grid.querySelector(".mtd-check, .mtd-menu-wrap")).toBeNull();
+    expect(grid.parentElement!.lastElementChild!.classList.contains("mtd-menu-wrap")).toBe(true);
+  });
+
+  it("toggles mtd-open on the wrap and aria-expanded with the menu", () => {
+    installHandlers(doc, { onToggleDone: vi.fn(), onMenuAction: vi.fn() });
+    render(doc, model(page));
+    const li = doc.getElementById("module-3979856")!;
+    const wrap = li.querySelector(".mtd-menu-wrap")!;
+    const btn = li.querySelector<HTMLButtonElement>(".mtd-menu-btn")!;
+    expect(btn.getAttribute("aria-haspopup")).toBe("menu");
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    btn.click();
+    expect(wrap.classList.contains("mtd-open")).toBe(true);
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    doc.body.click();
+    expect(wrap.classList.contains("mtd-open")).toBe(false);
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("labels checkboxes and keeps menu buttons across unchanged re-renders", () => {
+    render(doc, model(page));
+    const li = doc.getElementById("module-3979856")!;
+    expect(li.querySelector(".mtd-checkbox")!.getAttribute("aria-label")).toBe("Mark 01_Introduction_Lithography as done");
+    const first = li.querySelector(".mtd-menu-item");
+    render(doc, model(page));
+    expect(li.querySelector(".mtd-menu-item")).toBe(first);
+    const course = { ...emptyCourse(), itemOverrides: { "3979856": "ignore" as const } };
+    render(doc, model(page, { course }));
+    expect(li.querySelector(".mtd-menu-item")!.textContent).toBe("Track this item");
+  });
+
   it("offers Track labels for an ignored item and keeps its menu usable", () => {
     installHandlers(doc, { onToggleDone: vi.fn(), onMenuAction: vi.fn() });
     render(doc, model(page));

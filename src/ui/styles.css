@@ -23,8 +23,18 @@ li.activity.mtd-done .instancename {
   text-decoration: line-through;
 }
 
-li.activity.mtd-ignored .activity-grid > :not(.mtd-menu-wrap) {
+li.activity.mtd-ignored .activity-grid {
   opacity: 0.35;
+}
+
+.activity-item:has(> .mtd-check, > .mtd-menu-wrap) {
+  display: flex;
+  align-items: center;
+}
+
+.activity-item > .activity-grid {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .mtd-menu-wrap {
@@ -32,6 +42,10 @@ li.activity.mtd-ignored .activity-grid > :not(.mtd-menu-wrap) {
   margin-left: auto;
   align-self: center;
   z-index: 3;
+}
+
+.mtd-menu-wrap.mtd-open {
+  z-index: 1000;
 }
 
 .mtd-menu-btn {

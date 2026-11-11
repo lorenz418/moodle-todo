@@ -50,7 +50,11 @@ export function installHandlers(doc: Document, handlers: Handlers): void {
       const menu = menuBtn.parentElement?.querySelector(".mtd-menu");
       const wasOpen = menu?.classList.contains("mtd-open") ?? false;
       closeAllMenus(doc);
-      if (!wasOpen) menu?.classList.add("mtd-open");
+      if (!wasOpen) {
+        menu?.classList.add("mtd-open");
+        menuBtn.parentElement?.classList.add("mtd-open");
+        menuBtn.setAttribute("aria-expanded", "true");
+      }
       return;
     }
     const menuItem = target?.closest<HTMLButtonElement>(".mtd-menu-item");
@@ -72,11 +76,16 @@ export function installHandlers(doc: Document, handlers: Handlers): void {
 
 function closeAllMenus(doc: Document): void {
   doc.querySelectorAll(".mtd-menu.mtd-open").forEach((m) => m.classList.remove("mtd-open"));
+  doc.querySelectorAll(".mtd-menu-wrap.mtd-open").forEach((w) => {
+    w.classList.remove("mtd-open");
+    w.querySelector(".mtd-menu-btn")?.setAttribute("aria-expanded", "false");
+  });
 }
 
 function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
   const state = resolveState(item, model.course, model.global);
-  const host = item.el.querySelector<HTMLElement>(".activity-grid") ?? item.el;
+  const host = item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
+  const grid = host.querySelector<HTMLElement>(":scope > .activity-grid");
 
   item.el.classList.toggle("mtd-done", state === "done");
   item.el.classList.toggle("mtd-ignored", state === "ignored");
@@ -94,9 +103,12 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
       box.dataset.cmid = String(item.cmid);
       box.title = "Mark as done";
       check.appendChild(box);
-      host.insertBefore(check, host.firstChild);
+      if (grid) host.insertBefore(check, grid);
+      else host.insertBefore(check, host.firstChild);
     }
-    check.querySelector<HTMLInputElement>(".mtd-checkbox")!.checked = state === "done";
+    const box = check.querySelector<HTMLInputElement>(".mtd-checkbox")!;
+    box.checked = state === "done";
+    box.setAttribute("aria-label", `Mark ${item.name} as done`);
   }
 
   let wrap = host.querySelector<HTMLElement>(":scope > .mtd-menu-wrap");
@@ -110,6 +122,8 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
     btn.className = "mtd-menu-btn";
     btn.title = "Ignore options";
     btn.setAttribute("aria-label", "Ignore options");
+    btn.setAttribute("aria-haspopup", "menu");
+    btn.setAttribute("aria-expanded", "false");
     btn.textContent = "⋯";
     wrap.append(menu, btn);
     host.appendChild(wrap);
@@ -121,21 +135,29 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
 
 function renderMenuItems(doc: Document, menu: Element, item: RuleItem, model: RenderModel): void {
   const name = typeName(item.type);
+  const specs = LAYERS.map((layer) => {
+    const current = menuState(layer, item, model.course, model.global);
+    const value: Rule = current === "ignore" ? "track" : "ignore";
+    const verb = value === "ignore" ? "Ignore" : "Track";
+    const label =
+      layer === "item" ? `${verb} this item`
+      : layer === "course" ? `${verb} all ${name} in this course`
+      : `${verb} all ${name} everywhere`;
+    return { layer, value, label };
+  });
+  const existing = Array.from(menu.children) as HTMLElement[];
+  const same =
+    existing.length === specs.length &&
+    specs.every((s, i) => existing[i]!.dataset.layer === s.layer && existing[i]!.dataset.value === s.value && existing[i]!.textContent === s.label);
+  if (same) return;
   menu.replaceChildren(
-    ...LAYERS.map((layer) => {
-      const current = menuState(layer, item, model.course, model.global);
-      const value: Rule = current === "ignore" ? "track" : "ignore";
-      const verb = value === "ignore" ? "Ignore" : "Track";
-      const label =
-        layer === "item" ? `${verb} this item`
-        : layer === "course" ? `${verb} all ${name} in this course`
-        : `${verb} all ${name} everywhere`;
+    ...specs.map((s) => {
       const btn = doc.createElement("button");
       btn.type = "button";
       btn.className = "mtd-menu-item";
-      btn.dataset.layer = layer;
-      btn.dataset.value = value;
-      btn.textContent = label;
+      btn.dataset.layer = s.layer;
+      btn.dataset.value = s.value;
+      btn.textContent = s.label;
       return btn;
     }),
   );
