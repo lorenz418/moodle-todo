@@ -35,6 +35,20 @@ describe("parseCourseState", () => {
     });
   });
 
+  it("accepts ids and numbers sent as numeric strings", () => {
+    const stringly = {
+      section: [{ id: "100", number: "0" }, { id: "101", section: "1" }],
+      cm: [
+        { id: "1", module: "resource", sectionid: "100" },
+        { id: "3", module: "lti", sectionid: "101" },
+      ],
+    };
+    expect(parseCourseState(response(stringly))).toEqual({
+      "1": { section: 0, type: "resource" },
+      "3": { section: 1, type: "lti" },
+    });
+  });
+
   it("returns null on error responses and malformed input", () => {
     expect(parseCourseState([{ error: true, exception: { message: "nope" } }])).toBeNull();
     expect(parseCourseState([{ error: false, data: "not json" }])).toBeNull();

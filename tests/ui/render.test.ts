@@ -55,7 +55,7 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     expect(badge1.classList.contains("mtd-complete")).toBe(false);
     // section 0 holds only the announcements forum, which is ignored: no badge
     expect(page.sections[0]!.headingEl!.closest("li.section")!.querySelector(".mtd-badge")).toBeNull();
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("1 / 8 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("1 of 8 done");
   });
 
   it("marks a section complete and removes a badge that becomes empty", () => {
@@ -63,7 +63,7 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     render(doc, model(page, { course }));
     const section1 = page.sections[1]!.headingEl!.closest("li.section")!;
     expect(section1.querySelector(".mtd-badge")!.classList.contains("mtd-complete")).toBe(true);
-    expect(section1.querySelector(".mtd-badge")!.textContent).toBe("✓ 2/2");
+    expect(section1.querySelector(".mtd-badge")!.textContent).toBe("2/2");
     // Ignoring files and recordings at course level leaves nothing tracked (forum and choice are ignored globally).
     const ignored = { ...course, typeRules: { resource: "ignore" as const, lti: "ignore" as const } };
     render(doc, model(page, { course: ignored }));
@@ -102,7 +102,7 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     li.querySelector<HTMLButtonElement>(".mtd-menu-btn")!.click();
     expect(li.querySelector(".mtd-menu")!.classList.contains("mtd-open")).toBe(true);
     const labels = Array.from(li.querySelectorAll(".mtd-menu-item")).map((b) => b.textContent);
-    expect(labels).toEqual(["Ignore this item", "Ignore all File in this course", "Ignore all File everywhere"]);
+    expect(labels).toEqual(["Ignore this item", "Ignore all Files in this course", "Ignore all Files everywhere"]);
     li.querySelectorAll<HTMLButtonElement>(".mtd-menu-item")[1]!.click();
     expect(onMenuAction).toHaveBeenCalledWith("course", "ignore", { cmid: 3979856, type: "resource" });
     expect(li.querySelector(".mtd-menu")!.classList.contains("mtd-open")).toBe(false);
@@ -145,6 +145,45 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     expect(li.querySelector(".mtd-menu-item")!.textContent).toBe("Track this item");
   });
 
+  it("keeps an aligned marker instead of a checkbox for ignored items, and swaps back", () => {
+    render(doc, model(page));
+    const forum = doc.getElementById("module-3828430")!;
+    expect(forum.querySelector(".mtd-check .mtd-ignored-mark")).not.toBeNull();
+    const course = { ...emptyCourse(), itemOverrides: { "3828430": "track" as const } };
+    render(doc, model(page, { course }));
+    expect(forum.querySelector(".mtd-ignored-mark")).toBeNull();
+    expect(forum.querySelectorAll(".mtd-check")).toHaveLength(1);
+    expect(forum.querySelector(".mtd-check .mtd-checkbox")).not.toBeNull();
+  });
+
+  it("shows percent, a complete state and an empty state on the progress card", () => {
+    const tracked = page.sections.flatMap((s) => s.items).filter((i) => i.type === "resource" || i.type === "lti");
+    render(doc, model(page, { course: { ...emptyCourse(), done: [tracked[0]!.cmid, tracked[1]!.cmid] } }));
+    const bar = doc.querySelector(".mtd-progress")!;
+    expect(doc.querySelector(".mtd-progress-percent")!.textContent).toBe("25%");
+    expect(bar.classList.contains("mtd-complete")).toBe(false);
+
+    render(doc, model(page, { course: { ...emptyCourse(), done: tracked.map((i) => i.cmid) } }));
+    expect(bar.classList.contains("mtd-complete")).toBe(true);
+    expect(doc.querySelector(".mtd-progress-percent")!.textContent).toBe("100%");
+
+    render(doc, model(page, { course: { ...emptyCourse(), typeRules: { resource: "ignore", lti: "ignore" } } }));
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("Nothing to track yet");
+    expect(doc.querySelector(".mtd-progress-percent")!.textContent).toBe("");
+  });
+
+  it("names the type in the menu heading and closes the menu with Escape", () => {
+    installHandlers(doc, { onToggleDone: vi.fn(), onMenuAction: vi.fn() });
+    render(doc, model(page));
+    const li = doc.getElementById("module-3979856")!;
+    li.querySelector<HTMLButtonElement>(".mtd-menu-btn")!.click();
+    expect(li.querySelector(".mtd-menu-heading")!.textContent).toBe("File");
+    li.querySelector<HTMLElement>(".mtd-menu-heading")!.click(); // clicks inside the menu keep it open
+    expect(li.querySelector(".mtd-menu")!.classList.contains("mtd-open")).toBe(true);
+    doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(li.querySelector(".mtd-menu")!.classList.contains("mtd-open")).toBe(false);
+  });
+
   it("offers Track labels for an ignored item and keeps its menu usable", () => {
     installHandlers(doc, { onToggleDone: vi.fn(), onMenuAction: vi.fn() });
     render(doc, model(page));
@@ -152,7 +191,7 @@ describe("render on a weeks course (Nanotechnologie)", () => {
     expect(forum.querySelector(".mtd-checkbox")).toBeNull();
     forum.querySelector<HTMLButtonElement>(".mtd-menu-btn")!.click();
     const labels = Array.from(forum.querySelectorAll(".mtd-menu-item")).map((b) => b.textContent);
-    expect(labels).toEqual(["Track this item", "Track all Forum in this course", "Track all Forum everywhere"]);
+    expect(labels).toEqual(["Track this item", "Track all Forums in this course", "Track all Forums everywhere"]);
   });
 });
 
@@ -173,6 +212,6 @@ describe("render on a onetopic course (Thermodynamics, Oct 27 tab)", () => {
     expect(tab4.querySelector(".mtd-badge")!.textContent).toBe("1/2");
     expect(tab6.querySelector(".mtd-badge")!.textContent).toBe("1/7");
     expect(tab0.querySelector(".mtd-badge")).toBeNull();
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("2 / 9 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("2 of 9 done");
   });
 });

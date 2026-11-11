@@ -1,6 +1,6 @@
 import type { CourseProgress, Progress } from "../model/progress";
 import { LAYERS, menuState, resolveState } from "../model/rules";
-import { typeName } from "../model/typeNames";
+import { typeName, typeNamePlural } from "../model/typeNames";
 import type { CourseData, GlobalData, Layer, ParsedItem, ParsedPage, Rule, RuleItem } from "../types";
 
 export interface RenderModel {
@@ -21,6 +21,8 @@ export interface Handlers {
 }
 
 const FALLBACK_NOTE = "Course state unavailable, counts may be incomplete";
+const DOTS_SVG =
+  '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>';
 
 /** Renders the whole page from the model. Safe to call repeatedly. */
 export function render(doc: Document, model: RenderModel): void {
@@ -32,6 +34,7 @@ export function render(doc: Document, model: RenderModel): void {
     renderBadge(doc, tab.el, null, model.progress?.sections.get(tab.num));
   }
   renderProgressBar(doc, model);
+  alignControls(model.page);
 }
 
 /** Installs delegated event handlers once per document. */
@@ -46,16 +49,13 @@ export function installHandlers(doc: Document, handlers: Handlers, signal?: Abor
     const target = e.target as Element | null;
     const menuBtn = target?.closest<HTMLButtonElement>(".mtd-menu-btn");
     if (menuBtn) {
+      // The listener sits on the document, so stopPropagation only shields window-level listeners.
       e.preventDefault();
       e.stopPropagation();
-      const menu = menuBtn.parentElement?.querySelector(".mtd-menu");
-      const wasOpen = menu?.classList.contains("mtd-open") ?? false;
+      const wrap = menuBtn.parentElement;
+      const wasOpen = wrap?.classList.contains("mtd-open") ?? false;
       closeAllMenus(doc);
-      if (!wasOpen) {
-        menu?.classList.add("mtd-open");
-        menuBtn.parentElement?.classList.add("mtd-open");
-        menuBtn.setAttribute("aria-expanded", "true");
-      }
+      if (wrap && !wasOpen) openMenu(doc, wrap, menuBtn);
       return;
     }
     const menuItem = target?.closest<HTMLButtonElement>(".mtd-menu-item");
@@ -71,12 +71,28 @@ export function installHandlers(doc: Document, handlers: Handlers, signal?: Abor
       closeAllMenus(doc);
       return;
     }
-    closeAllMenus(doc);
+    if (!target?.closest(".mtd-menu")) closeAllMenus(doc);
+  }, { signal });
+
+  doc.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAllMenus(doc);
   }, { signal });
 }
 
+function openMenu(doc: Document, wrap: HTMLElement, btn: HTMLButtonElement): void {
+  const menu = wrap.querySelector<HTMLElement>(".mtd-menu");
+  if (!menu) return;
+  wrap.classList.add("mtd-open");
+  menu.classList.add("mtd-open");
+  btn.setAttribute("aria-expanded", "true");
+  // Open upward when the menu would run past the bottom of the viewport.
+  const view = doc.defaultView;
+  const rect = menu.getBoundingClientRect();
+  menu.classList.toggle("mtd-up", !!view && rect.height > 0 && rect.bottom > view.innerHeight - 8);
+}
+
 function closeAllMenus(doc: Document): void {
-  doc.querySelectorAll(".mtd-menu.mtd-open").forEach((m) => m.classList.remove("mtd-open"));
+  doc.querySelectorAll(".mtd-menu.mtd-open").forEach((m) => m.classList.remove("mtd-open", "mtd-up"));
   doc.querySelectorAll(".mtd-menu-wrap.mtd-open").forEach((w) => {
     w.classList.remove("mtd-open");
     w.querySelector(".mtd-menu-btn")?.setAttribute("aria-expanded", "false");
@@ -92,22 +108,31 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
   item.el.classList.toggle("mtd-ignored", state === "ignored");
 
   let check = host.querySelector<HTMLElement>(":scope > .mtd-check");
+  if (!check) {
+    check = doc.createElement("span");
+    check.className = "mtd-check";
+    if (grid) host.insertBefore(check, grid);
+    else host.insertBefore(check, host.firstChild);
+  }
+
   if (state === "ignored") {
-    check?.remove();
+    let mark = check.querySelector<HTMLElement>(".mtd-ignored-mark");
+    if (!mark) {
+      mark = doc.createElement("span");
+      mark.className = "mtd-ignored-mark";
+      mark.title = "Ignored, not counted";
+      check.replaceChildren(mark);
+    }
   } else {
-    if (!check) {
-      check = doc.createElement("span");
-      check.className = "mtd-check";
-      const box = doc.createElement("input");
+    let box = check.querySelector<HTMLInputElement>(".mtd-checkbox");
+    if (!box) {
+      box = doc.createElement("input");
       box.type = "checkbox";
       box.className = "mtd-checkbox";
       box.dataset.cmid = String(item.cmid);
       box.title = "Mark as done";
-      check.appendChild(box);
-      if (grid) host.insertBefore(check, grid);
-      else host.insertBefore(check, host.firstChild);
+      check.replaceChildren(box);
     }
-    const box = check.querySelector<HTMLInputElement>(".mtd-checkbox")!;
     box.checked = state === "done";
     box.disabled = model.disabled;
     box.setAttribute("aria-label", `Mark ${item.name} as done`);
@@ -122,10 +147,10 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
     const btn = doc.createElement("button");
     btn.type = "button";
     btn.className = "mtd-menu-btn";
-    btn.title = "Ignore options";
-    btn.setAttribute("aria-label", "Ignore options");
+    btn.title = "Todo options";
+    btn.setAttribute("aria-label", "Todo options");
     btn.setAttribute("aria-expanded", "false");
-    btn.textContent = "⋯";
+    btn.innerHTML = DOTS_SVG; // static markup, no page data
     wrap.append(menu, btn);
     host.appendChild(wrap);
   }
@@ -136,23 +161,28 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
 }
 
 function renderMenuItems(doc: Document, menu: Element, item: RuleItem, model: RenderModel): void {
-  const name = typeName(item.type);
+  const plural = typeNamePlural(item.type);
   const specs = LAYERS.map((layer) => {
     const current = menuState(layer, item, model.course, model.global);
     const value: Rule = current === "ignore" ? "track" : "ignore";
     const verb = value === "ignore" ? "Ignore" : "Track";
     const label =
       layer === "item" ? `${verb} this item`
-      : layer === "course" ? `${verb} all ${name} in this course`
-      : `${verb} all ${name} everywhere`;
+      : layer === "course" ? `${verb} all ${plural} in this course`
+      : `${verb} all ${plural} everywhere`;
     return { layer, value, label };
   });
-  const existing = Array.from(menu.children) as HTMLElement[];
+  const buttons = Array.from(menu.querySelectorAll<HTMLElement>(".mtd-menu-item"));
   const same =
-    existing.length === specs.length &&
-    specs.every((s, i) => existing[i]!.dataset.layer === s.layer && existing[i]!.dataset.value === s.value && existing[i]!.textContent === s.label);
+    buttons.length === specs.length &&
+    specs.every((s, i) => buttons[i]!.dataset.layer === s.layer && buttons[i]!.dataset.value === s.value && buttons[i]!.textContent === s.label);
   if (same) return;
+
+  const heading = doc.createElement("div");
+  heading.className = "mtd-menu-heading";
+  heading.textContent = typeName(item.type);
   menu.replaceChildren(
+    heading,
     ...specs.map((s) => {
       const btn = doc.createElement("button");
       btn.type = "button";
@@ -192,9 +222,11 @@ function renderBadge(doc: Document, anchor: HTMLElement, after: HTMLElement | nu
     else anchor.appendChild(badge);
   }
   const complete = progress.done === progress.total;
-  badge.textContent = `${complete ? "✓ " : ""}${progress.done}/${progress.total}`;
+  badge.textContent = `${progress.done}/${progress.total}`;
+  // Used by the compact tab variant, which draws a progress line instead of text.
+  badge.style.setProperty("--mtd-pct", `${Math.round((progress.done / progress.total) * 100)}%`);
   badge.classList.toggle("mtd-complete", complete);
-  badge.title = complete ? "Section complete" : `${progress.done} of ${progress.total} done`;
+  badge.title = complete ? "All done" : `${progress.done} of ${progress.total} done`;
 }
 
 function renderProgressBar(doc: Document, model: RenderModel): void {
@@ -204,28 +236,72 @@ function renderProgressBar(doc: Document, model: RenderModel): void {
     if (!content?.parentElement) return;
     bar = doc.createElement("div");
     bar.className = "mtd-progress";
+    // Static skeleton only; all dynamic text is set via textContent below.
     bar.innerHTML =
-      '<div class="mtd-progress-text"></div>' +
+      '<div class="mtd-progress-row">' +
+      '<span class="mtd-progress-label">Your progress</span>' +
+      '<span class="mtd-progress-text"></span>' +
+      '<span class="mtd-progress-percent"></span>' +
+      "</div>" +
       '<div class="mtd-progress-track"><div class="mtd-progress-fill"></div></div>' +
       '<div class="mtd-progress-note"></div>' +
-      '<div class="mtd-progress-message"></div>';
+      '<div class="mtd-progress-message" role="status"></div>';
     content.parentElement.insertBefore(bar, content);
   }
   const text = bar.querySelector<HTMLElement>(".mtd-progress-text")!;
+  const percent = bar.querySelector<HTMLElement>(".mtd-progress-percent")!;
   const fill = bar.querySelector<HTMLElement>(".mtd-progress-fill")!;
   const note = bar.querySelector<HTMLElement>(".mtd-progress-note")!;
   const message = bar.querySelector<HTMLElement>(".mtd-progress-message")!;
 
-  if (!model.progress) {
+  const course = model.progress?.course;
+  bar.classList.toggle("mtd-loading", !course);
+  bar.classList.toggle("mtd-complete", !!course && course.total > 0 && course.done === course.total);
+  if (!course) {
     text.textContent = "Loading…";
+    percent.textContent = "";
+    fill.style.width = "0%";
+  } else if (course.total === 0) {
+    text.textContent = "Nothing to track yet";
+    percent.textContent = "";
     fill.style.width = "0%";
   } else {
-    const { done, total } = model.progress.course;
-    text.textContent = `${done} / ${total} done`;
-    fill.style.width = total === 0 ? "0%" : `${Math.round((done / total) * 100)}%`;
+    const pct = Math.round((course.done / course.total) * 100);
+    text.textContent = `${course.done} of ${course.total} done`;
+    percent.textContent = `${pct}%`;
+    fill.style.width = `${pct}%`;
   }
   note.textContent = model.fallback ? FALLBACK_NOTE : "";
   note.hidden = !model.fallback;
   message.textContent = model.message ?? "";
   message.hidden = !model.message;
+}
+
+/**
+ * Lines the checkbox and menu button up with the activity icon, so they sit on
+ * the title row even when a description makes the row taller. Reads all
+ * positions first, then writes, to avoid layout thrashing. No-op without layout
+ * (e.g. in tests).
+ */
+function alignControls(page: ParsedPage): void {
+  const jobs: Array<{ els: HTMLElement[]; offset: number; height: number }> = [];
+  for (const section of page.sections) {
+    for (const item of section.items) {
+      const host = item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
+      const icon = host.querySelector<HTMLElement>(".activity-icon");
+      const els = [":scope > .mtd-check", ":scope > .mtd-menu-wrap"]
+        .map((sel) => host.querySelector<HTMLElement>(sel))
+        .filter((el): el is HTMLElement => el !== null);
+      if (!icon || els.length === 0) continue;
+      const iconRect = icon.getBoundingClientRect();
+      if (iconRect.height === 0) continue;
+      jobs.push({ els, offset: iconRect.top - host.getBoundingClientRect().top, height: iconRect.height });
+    }
+  }
+  for (const job of jobs) {
+    for (const el of job.els) {
+      el.style.marginTop = `${Math.max(0, job.offset)}px`;
+      el.style.height = `${job.height}px`;
+    }
+  }
 }

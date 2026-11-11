@@ -29,13 +29,28 @@ describe("App", () => {
 
     expect(doc.querySelectorAll(".mtd-checkbox")).toHaveLength(8);
     expect((await getCourse(120985)).name).toBe("Nanotechnologie");
-    expect(await getSeen(120985)).toEqual({
-      "3979856": { section: 1, type: "resource" },
-      "3985853": { section: 1, type: "lti" },
-      "777": { section: 9, type: "resource" },
-    });
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 / 3 done");
+    const seen = await getSeen(120985);
+    // State entries are kept (777 is in a week not shown on the page) ...
+    expect(seen["777"]).toEqual({ section: 9, type: "resource" });
+    expect(seen["3979856"]).toEqual({ section: 1, type: "resource" });
+    // ... and page items missing from the response are added, so every checkbox counts.
+    expect(Object.keys(seen)).toHaveLength(11);
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 of 9 done");
     expect(doc.querySelector(".mtd-progress")!.textContent).not.toContain("unavailable");
+  });
+
+  it("treats a state response that shares no item with the page as a failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => stateResponse(
+      [{ id: 1, module: "resource", sectionid: 11 }],
+      [{ id: 11, number: 1 }],
+    )));
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+
+    expect(await getSeen(120985)).not.toHaveProperty("1");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 of 8 done");
+    expect(doc.querySelector(".mtd-progress")!.textContent).toContain("Course state unavailable");
   });
 
   it("falls back to page items when the state call fails", async () => {
@@ -49,7 +64,7 @@ describe("App", () => {
     expect(Object.keys(seen)).toHaveLength(10);
     expect(seen["555"]).toBeUndefined(); // section 15 is on the page (all weeks are), so it was replaced
     expect(doc.querySelector(".mtd-progress")!.textContent).toContain("Course state unavailable");
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 / 8 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 of 8 done");
   });
 
   it("does not store the course name from a section page", async () => {
@@ -73,13 +88,13 @@ describe("App", () => {
     expect(li.classList.contains("mtd-done")).toBe(true); // immediate
     await flush();
     expect((await getCourse(120985)).done).toEqual([3979856]);
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("1 / 8 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("1 of 8 done");
 
     // another tab marks a second item done
     await updateCourse(120985, (c) => ({ ...c, done: [...c.done, 3985853] }));
     await flush();
     expect(doc.getElementById("module-3985853")!.classList.contains("mtd-done")).toBe(true);
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("2 / 8 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("2 of 8 done");
   });
 
   it("reverts the optimistic change and shows a message when the write fails", async () => {
@@ -151,7 +166,7 @@ describe("App robustness", () => {
     const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
     await app.start();
     expect(doc.querySelectorAll(".mtd-checkbox")).toHaveLength(8);
-    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 / 8 done");
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 of 8 done");
   });
 
   it("stops saving and shows a message after invalidate()", async () => {

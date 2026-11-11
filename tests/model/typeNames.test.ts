@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KNOWN_TYPES, typeName } from "../../src/model/typeNames";
+import { KNOWN_TYPES, typeName, typeNamePlural } from "../../src/model/typeNames";
 
 describe("typeName", () => {
   it("maps known module types to display names", () => {
@@ -10,6 +10,12 @@ describe("typeName", () => {
 
   it("falls back to the raw type", () => {
     expect(typeName("h5pactivity")).toBe("h5pactivity");
+  });
+
+  it("has plural display names with a fallback", () => {
+    expect(typeNamePlural("resource")).toBe("Files");
+    expect(typeNamePlural("quiz")).toBe("Quizzes");
+    expect(typeNamePlural("h5pactivity")).toBe("h5pactivity items");
   });
 
   it("lists the known types", () => {

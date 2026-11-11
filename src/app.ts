@@ -18,6 +18,23 @@ export interface AppOptions {
 
 const TAG = "[moodle-todo]";
 
+/**
+ * Adds page items the state response is missing, so every visible checkbox
+ * counts. A response that shares no item with a non-empty page is treated as
+ * unusable (most likely a field-name mismatch) and returns null.
+ */
+function withPageItems(state: SeenCache | null, sections: ParsedPage["sections"]): SeenCache | null {
+  if (!state) return null;
+  const pageItems = sections.flatMap((s) => s.items.map((i) => ({ key: String(i.cmid), section: s.num, type: i.type })));
+  if (pageItems.length > 0 && !pageItems.some((i) => i.key in state)) {
+    console.warn(`${TAG} course state does not match the page, ignoring it`);
+    return null;
+  }
+  const merged: SeenCache = { ...state };
+  for (const i of pageItems) merged[i.key] ??= { section: i.section, type: i.type };
+  return merged;
+}
+
 export class App {
   private course: CourseData = emptyCourse();
   private global: GlobalData = DEFAULT_GLOBAL;
@@ -73,7 +90,7 @@ export class App {
 
   private async loadSeen(): Promise<void> {
     const { courseId, sesskey, sections } = this.page;
-    const state = await fetchCourseState(courseId, sesskey, this.options.origin);
+    const state = withPageItems(await fetchCourseState(courseId, sesskey, this.options.origin), sections);
     if (state) {
       this.seen = state;
       this.fallback = false;
