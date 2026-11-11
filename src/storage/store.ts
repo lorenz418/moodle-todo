@@ -14,45 +14,71 @@ export interface SeenInput {
   section: number;
 }
 
+/** Serializes read-modify-write operations so back-to-back updates in one tab never drop each other. */
+let queue: Promise<unknown> = Promise.resolve();
+function serialized<T>(op: () => Promise<T>): Promise<T> {
+  const p = queue.then(op);
+  queue = p.catch(() => {});
+  return p;
+}
+
 export async function getGlobal(): Promise<GlobalData> {
   return (await storage.getItem<GlobalData>(GLOBAL_KEY)) ?? DEFAULT_GLOBAL;
 }
 
-export async function updateGlobal(fn: (g: GlobalData) => GlobalData): Promise<GlobalData> {
-  const next = fn(await getGlobal());
-  await storage.setItem(GLOBAL_KEY, next);
-  return next;
+export function updateGlobal(fn: (g: GlobalData) => GlobalData): Promise<GlobalData> {
+  return serialized(async () => {
+    const next = fn(await getGlobal());
+    await storage.setItem(GLOBAL_KEY, next);
+    return next;
+  });
 }
 
 export async function getCourse(id: number): Promise<CourseData> {
   return (await storage.getItem<CourseData>(courseKey(id))) ?? emptyCourse();
 }
 
-export async function updateCourse(id: number, fn: (c: CourseData) => CourseData): Promise<CourseData> {
-  const next = fn(await getCourse(id));
-  await storage.setItem(courseKey(id), next);
-  return next;
+export function updateCourse(id: number, fn: (c: CourseData) => CourseData): Promise<CourseData> {
+  return serialized(async () => {
+    const next = fn(await getCourse(id));
+    await storage.setItem(courseKey(id), next);
+    return next;
+  });
+}
+
+/** Like updateCourse, but hands `fn` the global data as it is at write time. */
+export function updateCourseWithGlobal(
+  id: number,
+  fn: (c: CourseData, g: GlobalData) => CourseData,
+): Promise<CourseData> {
+  return serialized(async () => {
+    const next = fn(await getCourse(id), await getGlobal());
+    await storage.setItem(courseKey(id), next);
+    return next;
+  });
 }
 
 export async function getSeen(id: number): Promise<SeenCache> {
   return (await storage.getItem<SeenCache>(seenKey(id))) ?? {};
 }
 
-export async function setSeen(id: number, seen: SeenCache): Promise<void> {
-  await storage.setItem(seenKey(id), seen);
+export function setSeen(id: number, seen: SeenCache): Promise<void> {
+  return serialized(() => storage.setItem(seenKey(id), seen));
 }
 
 /** Fallback mode: replace the cached entries of `sectionNums` with `items`, keep other sections. */
-export async function mergeSeenSections(id: number, sectionNums: number[], items: SeenInput[]): Promise<SeenCache> {
-  const current = await getSeen(id);
-  const replaced = new Set(sectionNums);
-  const next: SeenCache = {};
-  for (const [key, info] of Object.entries(current)) {
-    if (!replaced.has(info.section)) next[key] = info;
-  }
-  for (const item of items) next[String(item.cmid)] = { section: item.section, type: item.type };
-  await setSeen(id, next);
-  return next;
+export function mergeSeenSections(id: number, sectionNums: number[], items: SeenInput[]): Promise<SeenCache> {
+  return serialized(async () => {
+    const current = await getSeen(id);
+    const replaced = new Set(sectionNums);
+    const next: SeenCache = {};
+    for (const [key, info] of Object.entries(current)) {
+      if (!replaced.has(info.section)) next[key] = info;
+    }
+    for (const item of items) next[String(item.cmid)] = { section: item.section, type: item.type };
+    await storage.setItem(seenKey(id), next);
+    return next;
+  });
 }
 
 export function watchGlobal(cb: (g: GlobalData) => void): () => void {

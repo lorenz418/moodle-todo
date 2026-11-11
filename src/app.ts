@@ -2,7 +2,7 @@ import { fetchCourseState } from "./moodle/state";
 import { computeProgress, type CourseProgress } from "./model/progress";
 import { applyMenuAction, toggleDone } from "./model/rules";
 import {
-  getCourse, getGlobal, mergeSeenSections, setSeen, updateCourse, updateGlobal, watchCourse, watchGlobal,
+  getCourse, getGlobal, mergeSeenSections, setSeen, updateCourse, updateCourseWithGlobal, updateGlobal, watchCourse, watchGlobal,
 } from "./storage/store";
 import type { CourseData, GlobalData, Layer, ParsedPage, Rule, RuleItem, SeenCache } from "./types";
 import { DEFAULT_GLOBAL, emptyCourse } from "./types";
@@ -12,6 +12,8 @@ export interface AppOptions {
   /** True on course/view.php, where the h1 is the course name. */
   isCoursePage: boolean;
   origin: string;
+  /** Aborted when the extension context is invalidated; removes the DOM handlers. */
+  signal?: AbortSignal;
 }
 
 const TAG = "[moodle-todo]";
@@ -22,6 +24,8 @@ export class App {
   private seen: SeenCache | null = null;
   private fallback = false;
   private message: string | null = null;
+  private invalidated = false;
+  private unwatchers: Array<() => void> = [];
 
   constructor(
     private readonly doc: Document,
@@ -34,19 +38,36 @@ export class App {
     installHandlers(this.doc, {
       onToggleDone: (cmid, done) => this.handleToggleDone(cmid, done),
       onMenuAction: (layer, value, item) => this.handleMenuAction(layer, value, item),
-    });
+    }, this.options.signal);
+
+    // Register watchers first so changes made during the initial load are not missed.
+    this.unwatchers.push(
+      watchGlobal((g) => { this.global = g; this.render(); }),
+      watchCourse(courseId, (c) => { this.course = c; this.render(); }),
+    );
 
     [this.global, this.course] = await Promise.all([getGlobal(), getCourse(courseId)]);
     if (this.options.isCoursePage && this.page.courseName && this.course.name !== this.page.courseName) {
       const name = this.page.courseName;
-      this.course = await updateCourse(courseId, (c) => ({ ...c, name }));
+      this.course = { ...this.course, name };
+      updateCourse(courseId, (c) => ({ ...c, name })).catch((err: unknown) => {
+        console.warn(`${TAG} could not store course name`, err);
+      });
     }
     this.render();
 
-    watchGlobal((g) => { this.global = g; this.render(); });
-    watchCourse(courseId, (c) => { this.course = c; this.render(); });
-
     await this.loadSeen();
+    this.render();
+  }
+
+  /** Called when the extension context is gone: stop listening and tell the user. */
+  invalidate(): void {
+    this.invalidated = true;
+    for (const unwatch of this.unwatchers) {
+      try { unwatch(); } catch { /* context already gone */ }
+    }
+    this.unwatchers = [];
+    this.message = "Extension was updated, reload the page to keep saving";
     this.render();
   }
 
@@ -56,16 +77,25 @@ export class App {
     if (state) {
       this.seen = state;
       this.fallback = false;
-      await setSeen(courseId, state);
+      this.render(); // do not hold the UI back on the best-effort write
+      try {
+        await setSeen(courseId, state);
+      } catch (err) {
+        console.warn(`${TAG} could not store seen cache`, err);
+      }
       return;
     }
     console.warn(`${TAG} course state unavailable, using page items only`);
     this.fallback = true;
-    this.seen = await mergeSeenSections(
-      courseId,
-      sections.map((s) => s.num),
-      sections.flatMap((s) => s.items.map((i) => ({ cmid: i.cmid, type: i.type, section: s.num }))),
-    );
+    const items = sections.flatMap((s) => s.items.map((i) => ({ cmid: i.cmid, type: i.type, section: s.num })));
+    try {
+      this.seen = await mergeSeenSections(courseId, sections.map((s) => s.num), items);
+    } catch (err) {
+      console.warn(`${TAG} could not store seen cache`, err);
+      const seen: SeenCache = {};
+      for (const i of items) seen[String(i.cmid)] = { section: i.section, type: i.type };
+      this.seen = seen;
+    }
   }
 
   private render(): void {
@@ -81,6 +111,7 @@ export class App {
   }
 
   private handleToggleDone(cmid: number, done: boolean): void {
+    if (this.invalidated) return;
     this.course = toggleDone(this.course, cmid, done);
     this.message = null;
     this.render();
@@ -93,6 +124,7 @@ export class App {
   }
 
   private handleMenuAction(layer: Layer, value: Rule, item: RuleItem): void {
+    if (this.invalidated) return;
     const optimistic = applyMenuAction(layer, value, item, this.course, this.global);
     const previous = { course: this.course, global: this.global };
     this.course = optimistic.course;
@@ -103,7 +135,7 @@ export class App {
     const write =
       layer === "global"
         ? updateGlobal((g) => applyMenuAction(layer, value, item, previous.course, g).global)
-        : updateCourse(this.page.courseId, (c) => applyMenuAction(layer, value, item, c, previous.global).course);
+        : updateCourseWithGlobal(this.page.courseId, (c, g) => applyMenuAction(layer, value, item, c, g).course);
 
     write.catch((err: unknown) => {
       console.warn(`${TAG} could not save`, err);

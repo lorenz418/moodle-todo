@@ -34,12 +34,12 @@ export function render(doc: Document, model: RenderModel): void {
 }
 
 /** Installs delegated event handlers once per document. */
-export function installHandlers(doc: Document, handlers: Handlers): void {
+export function installHandlers(doc: Document, handlers: Handlers, signal?: AbortSignal): void {
   doc.addEventListener("change", (e) => {
     const box = (e.target as Element | null)?.closest<HTMLInputElement>(".mtd-checkbox");
     if (!box) return;
     handlers.onToggleDone(Number(box.dataset.cmid), box.checked);
-  });
+  }, { signal });
 
   doc.addEventListener("click", (e) => {
     const target = e.target as Element | null;
@@ -71,7 +71,7 @@ export function installHandlers(doc: Document, handlers: Handlers): void {
       return;
     }
     closeAllMenus(doc);
-  });
+  }, { signal });
 }
 
 function closeAllMenus(doc: Document): void {

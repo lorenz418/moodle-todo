@@ -9,7 +9,7 @@ export default defineContentScript({
     "https://www.moodle.tum.de/course/section.php*",
   ],
   runAt: "document_idle",
-  async main() {
+  async main(ctx) {
     const page = parsePage(document);
     if (!page) {
       console.warn("[moodle-todo] not a recognizable course page, doing nothing");
@@ -18,7 +18,13 @@ export default defineContentScript({
     const app = new App(document, page, {
       isCoursePage: location.pathname.endsWith("/course/view.php"),
       origin: location.origin,
+      signal: ctx.signal,
     });
-    await app.start();
+    ctx.onInvalidated(() => app.invalidate());
+    try {
+      await app.start();
+    } catch (e) {
+      console.error("[moodle-todo] failed to start", e);
+    }
   },
 });

@@ -123,3 +123,52 @@ describe("App", () => {
     expect(li.classList.contains("mtd-ignored")).toBe(false);
   });
 });
+
+describe("App robustness", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("persists two back-to-back toggles without a lost update", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 500 })));
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+    for (const id of [3979856, 3985853]) {
+      const box = doc.getElementById(`module-${id}`)!.querySelector<HTMLInputElement>(".mtd-checkbox")!;
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    await flush();
+    expect((await getCourse(120985)).done.sort()).toEqual([3979856, 3985853]);
+  });
+
+  it("still renders when the course name write fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 500 })));
+    vi.spyOn(fakeBrowser.storage.sync, "set").mockRejectedValueOnce(new Error("boom"));
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+    expect(doc.querySelectorAll(".mtd-checkbox")).toHaveLength(8);
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 / 8 done");
+  });
+
+  it("stops saving and shows a message after invalidate()", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 500 })));
+    const doc = loadPage("nano");
+    const controller = new AbortController();
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x", signal: controller.signal });
+    await app.start();
+    app.invalidate();
+    controller.abort();
+    const setSpy = vi.spyOn(fakeBrowser.storage.sync, "set");
+    const box = doc.getElementById("module-3979856")!.querySelector<HTMLInputElement>(".mtd-checkbox")!;
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(setSpy).not.toHaveBeenCalled();
+    expect(doc.querySelector(".mtd-progress-message")!.textContent).toContain("Extension was updated");
+    expect((await getCourse(120985)).done).toEqual([]);
+  });
+});
