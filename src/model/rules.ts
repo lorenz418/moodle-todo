@@ -1,6 +1,6 @@
 import type { CourseData, GlobalData, ItemState, Layer, Rule, RuleItem } from "../types";
 
-const LAYERS: Layer[] = ["item", "course", "global"];
+export const LAYERS: Layer[] = ["item", "course", "global"];
 
 function ruleAt(layer: Layer, item: RuleItem, course: CourseData, global: GlobalData): Rule | undefined {
   switch (layer) {

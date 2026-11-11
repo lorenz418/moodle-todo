@@ -1,7 +1,7 @@
 # Moodle Todo: Design
 
 Date: 2026-11-10
-Status: Reviewed, pending user sign-off
+Status: Implemented (v1), pending live manual test
 
 ## Goal
 
@@ -57,7 +57,7 @@ Every page (all three formats) includes Moodle's course index drawer, which Mood
 - Request: `POST https://www.moodle.tum.de/lib/ajax/service.php?sesskey=<sesskey>&info=core_courseformat_get_state` with body `[{"index":0,"methodname":"core_courseformat_get_state","args":{"courseid":<id>}}]`, same-origin, with cookies.
 - Response: `[{"error":false,"data":"<json string>"}]`; `data` is JSON-encoded a second time and must be parsed again.
 - Fields the design depends on: `section[]` with `id` (db id) and `number`; `cm[]` with `id` (cmid), `module` (type such as `resource`), `sectionid`. For subsections, `cm[]` entries of module `subsection` point to a delegated section; items in a delegated section are attributed to the section that contains the subsection cm.
-- `parseCourseState` excludes the same modules the DOM parser excludes (`label`, `subsection`), so both seen-cache producers agree. If the response carries a user-visibility flag on `cm[]` (such as `uservisible`; confirmed in the spike), cms the user cannot see are excluded too, since they never appear on the page and could never be checked.
+- `parseCourseState` excludes the same modules the DOM parser excludes (`label`, `subsection`), so both seen-cache producers agree. Date-restricted cms (`uservisible: false`) are kept, because Moodle renders them on the page (with an availability note) and the DOM parser keeps them too; cms not shown on the course page are already absent from the state response.
 
 This service is used by Moodle's own course index, has existed since Moodle 4.0, and is not a public API. The exact field names above must be confirmed in the user's browser before implementation (see Testing: Spike). If the call fails or the response does not match, the extension falls back to updating the seen cache from the pages it sees (fallback mode, see Data flow).
 
@@ -121,7 +121,7 @@ WXT (pinned to 0.21.x) with TypeScript, Vitest for tests. Pure logic is separate
 |---|---|
 | `entrypoints/moodle.content.ts` | Content script, matches `https://www.moodle.tum.de/course/view.php*` and `https://www.moodle.tum.de/course/section.php*`. Wires parse, state, store, model and UI together. |
 | `src/parse/page.ts` | `parsePage(document)` returns `{ courseId, courseName, format, sesskey: string | null, sections: [{ num, name, headingEl, items: [{ cmid, type, name, el }] }], tabs?: [{ num, el }] }` or `null` if the page is not a recognizable course page: no `body.course-<id>` class, or no `li.section[data-for="section"]` element present (this excludes the dashboard, which has `course-1` but no sections). The format is reported but not used to reject pages, so unseen formats with standard section markup still work. Labels and subsection containers are excluded from `items`; items inside a subsection are attributed to the enclosing top-level section. |
-| `src/moodle/state.ts` | `fetchCourseState(courseId, sesskey)` calls the course state service with a 10 s timeout and returns `Record<cmid, { section: number, type: string }>` (the seen-cache shape), or `null` on any failure including a missing sesskey. `parseCourseState(json)` is the pure part: handles the double-encoded response, drops `label`/`subsection` and user-invisible cms, and attributes subsection items to the enclosing section. |
+| `src/moodle/state.ts` | `fetchCourseState(courseId, sesskey)` calls the course state service with a 10 s timeout and returns `Record<cmid, { section: number, type: string }>` (the seen-cache shape), or `null` on any failure including a missing sesskey. `parseCourseState(json)` is the pure part: handles the double-encoded response, drops `label`/`subsection`, and attributes subsection items to the enclosing section. |
 | `src/model/rules.ts` | Pure rule logic. `resolveState(item, courseData, globalData)` returns `"open" | "done" | "ignored"`. `menuState(layer, item, courseData, globalData)` returns the value currently in effect at a layer (drives menu labels). `applyMenuAction(layer, value, item, courseData, globalData)` returns updated data, writing or removing the rule per the removal rule. |
 | `src/model/progress.ts` | Computes `{ done, total }` per section number and for the course from the seen cache plus stored data. Pure. |
 | `src/storage/store.ts` | Typed access to the storage keys below via WXT storage. Exposes get, update and a change watcher. |
@@ -175,7 +175,7 @@ Vitest with jsdom (or happy-dom) and WXT's `fakeBrowser`.
 
 - Spike (before implementation): the user runs the course state request from the browser console on a logged-in TUM Moodle course page and saves the response as `examples/course-state-<courseId>.json`. This confirms the service exists at TUM and fixes the field names. If the shape differs from the assumptions above, update this spec's "Course state service" section before planning the state module.
 - Parser: tests against all 12 course page examples in `examples/`, asserting format, course ID, section numbers, item counts, types, and sesskey extraction. Examples: Material Science I has 26 non-label items; Thermodynamics "Oct 13, 14" has 6 items (3 labels skipped); ODEs has 4 `assign` items. The dashboard page (`Meine Startseite | TUM.html`) is the `parsePage` returns `null` case.
-- Course state: `parseCourseState` tested against the saved spike response plus a hand-written fixture containing a label, a subsection and (if the field exists) an invisible cm; double-encoding handled; excluded modules absent from the result; malformed input returns `null`.
+- Course state: `parseCourseState` tested against the saved spike response plus a hand-written fixture containing a label, a subsection and a date-restricted cm (kept); double-encoding handled; excluded modules absent from the result; malformed input returns `null`.
 - Rules: table-driven tests for precedence (item over course over global over default), done-flag retention when ignored, rule removal when the new value equals the inherited value, and the three menu-label cases from the Items example.
 - Progress: per-section and course totals, fallback mode with unseen sections, done cmids missing from the seen cache.
 - Storage: read/write, full seen-cache replacement, and fallback per-section replacement using `fakeBrowser`.
@@ -183,3 +183,10 @@ Vitest with jsdom (or happy-dom) and WXT's `fakeBrowser`.
 - Manual: `npm run dev` against live TUM Moodle with a checklist covering one course per format, a `section.php` page, and fallback mode (simulated by blocking the service URL in DevTools).
 
 Note: the example HTML files and the spike JSON are saved from a logged-in session and may contain personal data (user ID, session key, name). They are fine as local fixtures; strip personal data before publishing the repository.
+
+## Implementation notes
+
+- Controls are placed outside Moodle's `.activity-grid` (inside `.activity-item`, flex layout) so the grid layout does not move them.
+- Storage writes go through a serialized queue, and `updateCourseWithGlobal` reads the global rules at write time to avoid lost updates.
+- The `setGlobalTypeRule` helper is used by the options page.
+- Extension context invalidation disables the controls and shows a reload message.

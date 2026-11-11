@@ -25,8 +25,18 @@ function serialized<T>(op: () => Promise<T>): Promise<T> {
   return p;
 }
 
+/** Fills in missing fields so a malformed or partial stored object cannot break rule resolution. */
+function normalizeGlobal(stored: Partial<GlobalData> | null | undefined): GlobalData {
+  if (!stored) return DEFAULT_GLOBAL;
+  return { ...stored, typeRules: { ...(stored.typeRules ?? DEFAULT_GLOBAL.typeRules) } };
+}
+
+function normalizeCourse(stored: Partial<CourseData> | null | undefined): CourseData {
+  return { ...emptyCourse(), ...stored };
+}
+
 export async function getGlobal(): Promise<GlobalData> {
-  return (await storage.getItem<GlobalData>(GLOBAL_KEY)) ?? DEFAULT_GLOBAL;
+  return normalizeGlobal(await storage.getItem<GlobalData>(GLOBAL_KEY));
 }
 
 export function updateGlobal(fn: (g: GlobalData) => GlobalData): Promise<GlobalData> {
@@ -38,7 +48,7 @@ export function updateGlobal(fn: (g: GlobalData) => GlobalData): Promise<GlobalD
 }
 
 export async function getCourse(id: number): Promise<CourseData> {
-  return (await storage.getItem<CourseData>(courseKey(id))) ?? emptyCourse();
+  return normalizeCourse(await storage.getItem<CourseData>(courseKey(id)));
 }
 
 export function updateCourse(id: number, fn: (c: CourseData) => CourseData): Promise<CourseData> {
@@ -85,11 +95,11 @@ export function mergeSeenSections(id: number, sectionNums: number[], items: Seen
 }
 
 export function watchGlobal(cb: (g: GlobalData) => void): () => void {
-  return storage.watch<GlobalData>(GLOBAL_KEY, (value) => cb(value ?? DEFAULT_GLOBAL));
+  return storage.watch<GlobalData>(GLOBAL_KEY, (value) => cb(normalizeGlobal(value)));
 }
 
 export function watchCourse(id: number, cb: (c: CourseData) => void): () => void {
-  return storage.watch<CourseData>(courseKey(id), (value) => cb(value ?? emptyCourse()));
+  return storage.watch<CourseData>(courseKey(id), (value) => cb(normalizeCourse(value)));
 }
 
 export async function listCourses(): Promise<Array<{ id: number; data: CourseData }>> {
@@ -98,7 +108,7 @@ export async function listCourses(): Promise<Array<{ id: number; data: CourseDat
   for (const [key, value] of Object.entries(all)) {
     if (!key.startsWith(COURSE_PREFIX)) continue;
     const id = Number(key.slice(COURSE_PREFIX.length));
-    if (Number.isFinite(id) && value) result.push({ id, data: value as CourseData });
+    if (Number.isFinite(id) && value) result.push({ id, data: normalizeCourse(value as Partial<CourseData>) });
   }
   return result;
 }

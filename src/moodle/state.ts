@@ -9,7 +9,6 @@ interface RawCm {
   id: number;
   module: string;
   sectionid: number;
-  uservisible?: boolean;
 }
 
 interface RawSection {
@@ -55,7 +54,7 @@ export function parseCourseState(body: unknown): SeenCache | null {
     const seen: SeenCache = {};
     for (const cm of state.cm) {
       if (typeof cm.id !== "number" || typeof cm.module !== "string") continue;
-      if (SKIPPED_MODULES.has(cm.module) || cm.uservisible === false) continue;
+      if (SKIPPED_MODULES.has(cm.module)) continue;
       const section = topLevelNumber(cm.sectionid);
       if (section === null) continue;
       seen[String(cm.id)] = { section, type: cm.module };

@@ -1,6 +1,6 @@
 import { fetchCourseState } from "./moodle/state";
 import { computeProgress, type CourseProgress } from "./model/progress";
-import { applyMenuAction, toggleDone } from "./model/rules";
+import { applyMenuAction, setGlobalTypeRule, toggleDone } from "./model/rules";
 import {
   getCourse, getGlobal, mergeSeenSections, setSeen, updateCourse, updateCourseWithGlobal, updateGlobal, watchCourse, watchGlobal,
 } from "./storage/store";
@@ -136,13 +136,18 @@ export class App {
 
     const write =
       layer === "global"
-        ? updateGlobal((g) => applyMenuAction(layer, value, item, previous.course, g).global)
+        ? updateGlobal((g) => setGlobalTypeRule(g, item.type, value))
         : updateCourseWithGlobal(this.page.courseId, (c, g) => applyMenuAction(layer, value, item, c, g).course);
 
-    write.catch((err: unknown) => {
+    write.catch(async (err: unknown) => {
       console.warn(`${TAG} could not save`, err);
-      this.course = previous.course;
-      this.global = previous.global;
+      // Restore from storage rather than the click-time snapshot, which may predate newer writes.
+      try {
+        [this.global, this.course] = await Promise.all([getGlobal(), getCourse(this.page.courseId)]);
+      } catch {
+        this.course = previous.course;
+        this.global = previous.global;
+      }
       if (!this.invalidated) this.message = "Could not save, please try again";
       this.render();
     });

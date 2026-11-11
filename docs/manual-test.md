@@ -7,6 +7,12 @@ Repeat the course checks on one course per format:
 - topics: Modeling and Simulation with ODEs (id 123555)
 - onetopic: Engineering Thermodynamics (id 125111)
 
+## Before starting
+
+- [ ] Capture `examples/course-state-125111.json` with the README snippet.
+- [ ] Confirm `cm[].module`, `cm[].sectionid`, `section[].id` and `section[].number` exist in it.
+- [ ] Run `npm test` so the previously skipped real-response test runs.
+
 ## Course page
 
 - [ ] Every file, recording, link, folder and assignment has a checkbox left of its icon. Labels have nothing.
@@ -16,6 +22,8 @@ Repeat the course checks on one course per format:
 - [ ] The progress bar at the top shows "n / m done" without an "unavailable" note (state service worked). m matches the count of tracked items in the whole course.
 - [ ] Section (or tab) badges show done/total; a fully done section turns green.
 - [ ] onetopic only: tabs you have never opened also show badges.
+- [ ] An item marked "Verfügbar ab ..." (e.g. Methods of Product Development, id 123093) has a checkbox, and checking it changes the bar and the section badge.
+- [ ] onetopic only: if a course has second-level tabs, note whether they show badges (not supported in v1).
 - [ ] Hover a row: the "⋯" button appears. The menu offers Ignore this item / Ignore all <Type> in this course / Ignore all <Type> everywhere.
 - [ ] Open the menu on the second-to-last item: it covers the next row and its entries are clickable (not the next row's ⋯ button).
 - [ ] "Ignore this item": checkbox disappears, counts drop by one. Menu now offers "Track this item"; clicking it restores the checkbox with its previous checked state.

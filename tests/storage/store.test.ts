@@ -13,6 +13,13 @@ describe("store", () => {
     expect(await getSeen(7)).toEqual({});
   });
 
+  it("fills missing fields of malformed stored data", async () => {
+    await storage.setItem("sync:course:8", { name: "Partial" });
+    expect(await getCourse(8)).toEqual({ ...emptyCourse(), name: "Partial", done: [] });
+    await storage.setItem("sync:global", {});
+    expect((await getGlobal()).typeRules).toEqual(DEFAULT_GLOBAL.typeRules);
+  });
+
   it("updates read-modify-write and persists", async () => {
     await updateCourse(7, (c) => ({ ...c, name: "Nano", done: [1] }));
     await updateCourse(7, (c) => ({ ...c, done: [...c.done, 2] }));

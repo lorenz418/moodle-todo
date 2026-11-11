@@ -26,11 +26,12 @@ const sampleState = {
 };
 
 describe("parseCourseState", () => {
-  it("maps cms to the seen-cache shape, dropping labels, subsections and invisible cms", () => {
+  it("maps cms to the seen-cache shape, dropping labels and subsections but keeping date-restricted cms", () => {
     expect(parseCourseState(response(sampleState))).toEqual({
       "1": { section: 0, type: "forum" },
       "3": { section: 1, type: "resource" },
       "4": { section: 1, type: "url" },
+      "5": { section: 1, type: "resource" },
     });
   });
 

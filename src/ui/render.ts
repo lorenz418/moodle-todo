@@ -1,5 +1,5 @@
 import type { CourseProgress, Progress } from "../model/progress";
-import { menuState, resolveState } from "../model/rules";
+import { LAYERS, menuState, resolveState } from "../model/rules";
 import { typeName } from "../model/typeNames";
 import type { CourseData, GlobalData, Layer, ParsedItem, ParsedPage, Rule, RuleItem } from "../types";
 
@@ -21,7 +21,6 @@ export interface Handlers {
 }
 
 const FALLBACK_NOTE = "Course state unavailable, counts may be incomplete";
-const LAYERS: Layer[] = ["item", "course", "global"];
 
 /** Renders the whole page from the model. Safe to call repeatedly. */
 export function render(doc: Document, model: RenderModel): void {
