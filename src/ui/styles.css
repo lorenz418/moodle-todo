@@ -1,0 +1,150 @@
+/* Moodle Todo: all selectors are prefixed mtd- to stay clear of Moodle's CSS. */
+
+.mtd-check {
+  display: flex;
+  align-items: center;
+  margin-right: 0.6rem;
+  position: relative;
+  z-index: 2; /* above Moodle's stretched-link overlay */
+}
+
+.mtd-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: #0065bd; /* TUM blue */
+}
+
+li.activity.mtd-done .activity-name-area {
+  opacity: 0.55;
+}
+
+li.activity.mtd-done .instancename {
+  text-decoration: line-through;
+}
+
+li.activity.mtd-ignored .activity-grid > :not(.mtd-menu-wrap) {
+  opacity: 0.35;
+}
+
+.mtd-menu-wrap {
+  position: relative;
+  margin-left: auto;
+  align-self: center;
+  z-index: 3;
+}
+
+.mtd-menu-btn {
+  border: 0;
+  background: transparent;
+  color: #6a6a6a;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+li.activity:hover .mtd-menu-btn,
+.mtd-menu-btn:focus-visible,
+.mtd-menu.mtd-open + .mtd-menu-btn,
+.mtd-menu-wrap:focus-within .mtd-menu-btn {
+  opacity: 1;
+}
+
+.mtd-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.mtd-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 15rem;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  padding: 0.25rem;
+  z-index: 1000;
+}
+
+.mtd-menu.mtd-open {
+  display: block;
+}
+
+.mtd-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.mtd-menu-item:hover {
+  background: #f0f4f8;
+}
+
+.mtd-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  background: #e9ecef;
+  color: #333;
+  vertical-align: middle;
+}
+
+.mtd-badge.mtd-complete {
+  background: #d4edda;
+  color: #155724;
+}
+
+.mtd-progress {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #fafbfc;
+  font-size: 0.9rem;
+}
+
+.mtd-progress-text {
+  font-weight: 600;
+}
+
+.mtd-progress-track {
+  height: 6px;
+  margin-top: 0.4rem;
+  border-radius: 3px;
+  background: #e3e7eb;
+  overflow: hidden;
+}
+
+.mtd-progress-fill {
+  height: 100%;
+  background: #0065bd;
+  transition: width 0.2s;
+}
+
+.mtd-progress-note {
+  margin-top: 0.3rem;
+  color: #6a6a6a;
+  font-size: 0.8rem;
+}
+
+.mtd-progress-message {
+  margin-top: 0.3rem;
+  color: #a12622;
+  font-size: 0.8rem;
+}
