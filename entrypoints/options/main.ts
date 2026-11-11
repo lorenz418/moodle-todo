@@ -2,17 +2,16 @@ import { setCourseTypeRule, setGlobalTypeRule } from "../../src/model/rules";
 import { KNOWN_TYPES } from "../../src/model/typeNames";
 import { renderOptions } from "../../src/options/view";
 import {
-  getGlobal, listCourses, listSeenTypes, listSeenTypesByCourse, removeCourse, resetCourseRules, updateCourse, updateGlobal,
+  getGlobal, listCourses, listSeenTypes, removeCourse, resetCourseRules, updateCourse, updateGlobal,
 } from "../../src/storage/store";
 import type { Rule } from "../../src/types";
 
 const root = document.getElementById("app") as HTMLElement;
 
 async function refresh(): Promise<void> {
-  const [global, seenTypes, courses, byCourse] = await Promise.all([getGlobal(), listSeenTypes(), listCourses(), listSeenTypesByCourse()]);
+  const [global, seenTypes, courses] = await Promise.all([getGlobal(), listSeenTypes(), listCourses()]);
   const extra = seenTypes.filter((t) => !KNOWN_TYPES.includes(t)).sort();
-  const withTypes = courses.map((c) => ({ ...c, types: byCourse.get(c.id) }));
-  renderOptions(root, { global, types: [...KNOWN_TYPES, ...extra], courses: withTypes }, {
+  renderOptions(root, { global, types: [...KNOWN_TYPES, ...extra], courses }, {
     setGlobalType: (type, value: Rule) => run(updateGlobal((g) => setGlobalTypeRule(g, type, value))),
     setCourseType: (id, type, value) => run(updateCourse(id, (c) => setCourseTypeRule(c, type, value))),
     resetCourseRules: (id) => run(resetCourseRules(id)),

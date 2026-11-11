@@ -5,8 +5,7 @@ export interface OptionsData {
   global: GlobalData;
   /** All types to show toggles for, already ordered. */
   types: string[];
-  /** `types` lists the module types seen in that course, if known. */
-  courses: Array<{ id: number; data: CourseData; types?: string[] }>;
+  courses: Array<{ id: number; data: CourseData }>;
 }
 
 type CourseEntry = OptionsData["courses"][number];
@@ -139,7 +138,7 @@ function courseRow(doc: Document, course: CourseEntry, data: OptionsData, open: 
   details.open = open;
   details.append(el(doc, "summary", null, "Rules for this course"));
   const list = el(doc, "div", "type-list");
-  for (const type of courseTypes(course, data)) {
+  for (const type of data.types) {
     const globalRule = data.global.typeRules[type] ?? "track";
     const row = el(doc, "div", "type-row");
     const text = el(doc, "div", "type-text");
@@ -163,13 +162,6 @@ function courseRow(doc: Document, course: CourseEntry, data: OptionsData, open: 
 
   card.append(head, details);
   return card;
-}
-
-/** Types seen in the course plus any with a course rule, in the order of the global list. */
-function courseTypes(course: CourseEntry, data: OptionsData): string[] {
-  if (!course.types) return data.types;
-  const present = new Set([...course.types, ...Object.keys(course.data.typeRules)]);
-  return [...data.types.filter((t) => present.has(t)), ...[...present].filter((t) => !data.types.includes(t)).sort()];
 }
 
 function button(doc: Document, text: string, action: string, title: string): HTMLButtonElement {

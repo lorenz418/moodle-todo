@@ -72,14 +72,14 @@ describe("renderOptions", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sets course rules with Global, Track or Ignore, only for types seen in that course", () => {
+  it("sets course rules with Global, Track or Ignore for every type", () => {
     const root = document.createElement("div");
     const a = actions();
-    const courses = [{ id: 7, types: ["resource", "lti"], data: { ...emptyCourse(), name: "Nano", typeRules: { forum: "track" as const } } }];
+    const courses = [{ id: 7, data: { ...emptyCourse(), name: "Nano", typeRules: { forum: "track" as const } } }];
     renderOptions(root, data({ courses }), a);
     document.body.append(root);
     const radios = Array.from(root.querySelectorAll<HTMLInputElement>('input[data-course="7"]:checked'));
-    expect(radios.map((r) => [r.dataset.type, r.value])).toEqual([["resource", "global"], ["forum", "track"], ["lti", "global"]]);
+    expect(radios.map((r) => [r.dataset.type, r.value])).toEqual([["resource", "global"], ["forum", "track"], ["choice", "global"], ["h5pactivity", "global"]]);
     expect(root.querySelector(".course-rules")!.textContent).toContain("Global setting: Ignore");
     root.querySelector<HTMLInputElement>('input[data-course="7"][data-type="resource"][value="ignore"]')!.click();
     root.querySelector<HTMLInputElement>('input[data-course="7"][data-type="forum"][value="global"]')!.click();
