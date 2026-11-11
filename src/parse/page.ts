@@ -18,30 +18,50 @@ export function parsePage(doc: Document): ParsedPage | null {
   if (allSections.length === 0) return null;
   const topLevel = allSections.filter((el) => !el.parentElement?.closest(SECTION_SELECTOR));
 
+  const stats = { skipped: 0 };
+  const sections = topLevel
+    .map((el) => parseSection(el, stats))
+    .filter((s): s is ParsedSection => s !== null);
+  if (stats.skipped > 0) console.warn(`[moodle-todo] skipped ${stats.skipped} unrecognized items`);
+
   return {
     courseId,
     courseName: doc.querySelector("h1")?.textContent?.trim() ?? "",
     format: classSuffix(body, "format-") ?? "unknown",
     sesskey: findSesskey(doc),
-    sections: topLevel.map(parseSection),
+    sections,
     tabs: parseTabs(doc),
   };
 }
 
-function parseSection(el: HTMLElement): ParsedSection {
-  const num = Number(el.dataset.sectionid ?? el.dataset.number ?? NaN);
+function strictInt(value: string | undefined | null): number | null {
+  return value !== undefined && value !== null && /^\d+$/.test(value) ? Number(value) : null;
+}
+
+function sectionNumber(el: HTMLElement): number | null {
+  const fromId = /^section-(\d+)$/.exec(el.id);
+  return strictInt(el.dataset.sectionid) ?? strictInt(el.dataset.number) ?? (fromId ? Number(fromId[1]) : null);
+}
+
+function parseSection(el: HTMLElement, stats: { skipped: number }): ParsedSection | null {
+  const num = sectionNumber(el);
+  if (num === null) return null;
   const headingEl = firstOwned(el, ".sectionname");
   const name = el.dataset.sectionname?.trim() || headingEl?.textContent?.trim() || `Section ${num}`;
   const items = Array.from(el.querySelectorAll<HTMLElement>(ITEM_SELECTOR))
-    .map(parseItem)
+    .map((it) => parseItem(it, stats))
     .filter((i): i is ParsedItem => i !== null);
   return { num, name, headingEl, items };
 }
 
-function parseItem(el: HTMLElement): ParsedItem | null {
-  const cmid = Number(el.dataset.id);
+function parseItem(el: HTMLElement, stats: { skipped: number }): ParsedItem | null {
+  const cmid = strictInt(el.dataset.id);
   const type = classSuffix(el, "modtype_");
-  if (!Number.isFinite(cmid) || !type || SKIPPED_TYPES.has(type)) return null;
+  if (cmid === null || !type) {
+    stats.skipped++;
+    return null;
+  }
+  if (SKIPPED_TYPES.has(type)) return null;
   const name =
     el.querySelector<HTMLElement>(".activity-item[data-activityname]")?.dataset.activityname?.trim() ||
     instanceName(el) ||
@@ -71,7 +91,7 @@ function parseTabs(doc: Document): ParsedTab[] | null {
 
 function findSesskey(doc: Document): string | null {
   for (const script of Array.from(doc.querySelectorAll("script"))) {
-    const m = /"sesskey":"([^"]+)"/.exec(script.textContent ?? "");
+    const m = /"sesskey"\s*:\s*"([^"]+)"/.exec(script.textContent ?? "");
     if (m) return m[1] ?? null;
   }
   const input = doc.querySelector<HTMLInputElement>('input[name="sesskey"]');

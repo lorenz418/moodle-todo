@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parsePage } from "../../src/parse/page";
 import { loadPage, type PageKey } from "../fixtures";
 
@@ -121,5 +121,46 @@ describe("parsePage", () => {
     expect(p.sections[0]!.headingEl?.textContent?.trim()).toBe("Week 1");
     expect(p.sections[0]!.items.map((i) => [i.cmid, i.type])).toEqual([[1, "resource"], [3, "url"]]);
     expect(p.sesskey).toBeNull();
+  });
+
+  describe("strictness and warnings", () => {
+    const page = (items: string, sectionAttrs = 'data-sectionid="1"') =>
+      new DOMParser().parseFromString(
+        `<html><body class="course-9 format-topics"><h1>C</h1>
+        <ul><li class="section course-section" data-for="section" ${sectionAttrs}>
+        <ul data-for="cmlist">${items}</ul></li></ul></body></html>`,
+        "text/html",
+      );
+    const item = (id: string, cls: string) =>
+      `<li class="activity ${cls}" data-for="cmitem" data-id="${id}"><div class="activity-item" data-activityname="N${id}"></div></li>`;
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it("warns once and keeps other items when an item lacks a modtype class", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const p = parsePage(page(item("1", "modtype_url") + item("2", "") + item("3", "modtype_resource")))!;
+      expect(p.sections[0]!.items.map((i) => i.cmid)).toEqual([1, 3]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("[moodle-todo] skipped 1 unrecognized items");
+    });
+
+    it("drops an item with an empty data-id and counts it", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const p = parsePage(page(item("", "modtype_url") + item("4", "modtype_url")))!;
+      expect(p.sections[0]!.items.map((i) => i.cmid)).toEqual([4]);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not warn for labels and subsections", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      parsePage(page(item("1", "modtype_label") + item("2", "modtype_url")));
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("skips a section with no usable number and falls back to the section-N id", () => {
+      expect(parsePage(page(item("1", "modtype_url"), 'data-sectionid=""'))!.sections).toHaveLength(0);
+      const p = parsePage(page(item("1", "modtype_url"), 'data-sectionid="" id="section-7"'))!;
+      expect(p.sections.map((s) => s.num)).toEqual([7]);
+    });
   });
 });
