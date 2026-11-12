@@ -39,7 +39,7 @@ describe("parsePage", () => {
     expect(p.courseId).toBe(exp.courseId);
     expect(p.courseName).toBe(exp.courseName);
     expect(p.format).toBe(exp.format);
-    expect(p.sesskey).toBe("REDACTED00");
+    expect(p.sesskey).toMatch(/^\w{10}$/);
     expect(p.sections.map((s) => s.num)).toEqual(exp.sectionNums);
     const items = p.sections.flatMap((s) => s.items);
     expect(items).toHaveLength(exp.items);

@@ -1,4 +1,11 @@
 node_modules/
+dist/
 .output/
 .wxt/
 .DS_Store
+
+# Pages saved from a logged-in Moodle session: they contain the user id,
+# session keys, names and course content. Keep them local only.
+examples/
+*.har
+course-state-*.json

@@ -55,6 +55,6 @@ The extension only runs on `www.moodle.tum.de`. To use it with your university's
    npm run build
    ```
 
-4. Load the folder `.output/chrome-mv3` in Chrome as described in [Install](#install).
+4. Load the folder `dist/moodle-todo` in Chrome as described in [Install](#install).
 
 It is tested on Moodle 4.x course pages in the weekly, topics and "onetopic" (tabs) formats. If your Moodle looks very different, checkboxes might not appear.
