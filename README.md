@@ -1,40 +1,60 @@
 # Moodle Todo
 
-A Chrome extension that turns TUM Moodle course pages into a todo list: a checkbox on every lecture file, recording, problem sheet and assignment, ignore rules for things that are not work, and progress counts per section and course. State lives in Chrome's synced storage, so it follows you across devices.
+A Chrome extension that turns your Moodle course pages into a todo list. Every lecture file, recording and problem sheet gets a checkbox, and you see how far you are in each week and in the whole course. Things that are not work, like announcement forums, can be ignored so they don't count.
 
-## Install for daily use
+Built for TUM Moodle (https://www.moodle.tum.de). Other Moodle sites work with a small change, see [Use it with another Moodle](#use-it-with-another-moodle).
 
-1. `npm install`
-2. `npm run build`
-3. Open `chrome://extensions`, enable Developer mode, click "Load unpacked" and pick `.output/chrome-mv3`.
-4. Open any course on https://www.moodle.tum.de.
+![A course page with checkboxes, week badges and the progress bar](docs/screenshots/course-page.png)
 
-## Develop
+## Install
 
-- `npm run dev` opens a Chrome window with the extension and reloads on save.
-- `npm test` runs the unit tests (parser tests use the saved pages in `examples/`).
-- `npm run compile` type-checks.
-- `.npmrc` sets `legacy-peer-deps=true` because plain `npm install` crashed with an npm arborist bug on Node 24.5; remove it once that is fixed.
-- `docs/manual-test.md` is the checklist for a live check.
+1. Download **`moodle-todo-chrome.zip`** from the [latest release](../../releases/latest) and unzip it. You get a folder.
+2. Open `chrome://extensions` in Chrome.
+3. Turn on **Developer mode** (top right).
+4. Click **Load unpacked** and select the unzipped folder.
+5. Optional: pin the extension via the puzzle icon in the toolbar.
 
-## How it works
+Keep the folder where it is. Chrome loads the extension from it, so deleting or moving the folder removes the extension.
 
-- Content script on `course/view.php` and `course/section.php`. The page is parsed by `src/parse/page.ts`.
-- The whole course's item list comes from Moodle's own course state service (`core_courseformat_get_state`), see `src/moodle/state.ts`. If that fails, only items seen on pages are counted.
-- Ignore rules have three layers (item, course + type, global + type), resolved in `src/model/rules.ts`.
-- Storage keys: `sync:global`, `sync:course:<id>` (decisions), `local:seen:<id>` (rebuildable cache).
+To update, download the new zip, replace the folder's contents and click the reload icon on Moodle Todo in `chrome://extensions`.
 
-## Refreshing the course state fixture
+## Use it
 
-On a logged-in course page, run in the DevTools console:
+Open any course on Moodle.
 
-    const r = await fetch(`/lib/ajax/service.php?sesskey=${M.cfg.sesskey}&info=core_courseformat_get_state`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify([{ index: 0, methodname: "core_courseformat_get_state", args: { courseid: M.cfg.courseId } }]) });
-    copy(JSON.stringify(await r.json()));
+- **Check off** an item with the checkbox in front of it. Done items are struck through.
+- **Progress** is shown at the top of the course, as a badge on each week, and as a thin line under each tab in courses that use tabs.
+- **Ignore** things that aren't tasks: hover an item, click **⋯** on the right and choose to ignore just this item, all items of that type in this course, or that type everywhere. Ignored items keep their normal look but have no checkbox and don't count.
 
-Paste into `examples/course-state-<courseId>.json`.
+![The ⋯ menu on an item](docs/screenshots/menu.png)
 
-## Privacy note
+## Settings
 
-The files in `examples/` were saved from a logged-in session and contain a user id and session key. Strip them before publishing this repository.
+Click the extension icon to open the settings.
 
-Design: `docs/superpowers/specs/2026-11-10-moodle-todo-design.md`.
+- **What counts as a task** decides per type (File, Recording, Link, Forum, …) whether it is tracked in every course. Forums and surveys are ignored by default.
+- **Courses** lists your courses. Open **Rules for this course** to track or ignore a type only in that course. "Global" follows the setting above.
+- **Reset rules** removes a course's rules but keeps your checkmarks. **Clear all** also deletes the checkmarks.
+
+The most specific rule wins: a single item beats its course, and a course beats the global setting.
+
+<img src="docs/screenshots/settings.png" alt="The settings page" width="600">
+
+Your checkmarks are saved in Chrome and sync to other computers where you are signed in to Chrome. Removing the extension deletes them.
+
+## Use it with another Moodle
+
+The extension only runs on `www.moodle.tum.de`. To use it with your university's Moodle you need to build it yourself, which takes a few minutes and needs [Node.js](https://nodejs.org) 20 or newer.
+
+1. Download this repository (green **Code** button, then **Download ZIP**) and unzip it.
+2. Open `entrypoints/moodle.content.ts` and replace `https://www.moodle.tum.de` in both lines with your Moodle's address, for example `https://moodle.example-university.edu`.
+3. In a terminal, inside the folder, run:
+
+   ```sh
+   npm install
+   npm run build
+   ```
+
+4. Load the folder `.output/chrome-mv3` in Chrome as described in [Install](#install).
+
+It is tested on Moodle 4.x course pages in the weekly, topics and "onetopic" (tabs) formats. If your Moodle looks very different, checkboxes might not appear.
