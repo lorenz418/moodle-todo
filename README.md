@@ -54,8 +54,18 @@ Open any course on Moodle.
 - **See your progress** at the top of the course, on each week, and under each tab in courses that use tabs.
 - **Ignore** things that aren't tasks: hover an item, click **⋯** on the right and choose what to ignore.
 
+In courses that use tabs, each tab gets a thin progress line. Green means the tab is finished.
+
 <div align="center">
-<img src="docs/screenshots/menu.png" alt="The ⋯ menu on an item" width="900">
+<img src="docs/screenshots/tabs.png" alt="Tabs with progress lines and the course progress bar" width="900">
+</div>
+
+<br>
+
+The **⋯** menu on an item:
+
+<div align="center">
+<img src="docs/screenshots/menu.png" alt="The ⋯ menu on an item" width="640">
 </div>
 
 <br>
@@ -74,9 +84,16 @@ Ignored items keep their normal look. They just have no checkbox and don't count
 
 Click the extension icon to open the settings.
 
-<div align="center">
-<img src="docs/screenshots/settings.png" alt="The settings page" width="560">
-</div>
+<table>
+<tr>
+<td valign="top"><img src="docs/screenshots/settings-types.png" alt="Global rules: which types count as tasks"></td>
+<td valign="top"><img src="docs/screenshots/settings-courses.png" alt="Rules for a single course"></td>
+</tr>
+<tr>
+<td align="center"><sub>Rules for every course</sub></td>
+<td align="center"><sub>Rules for one course</sub></td>
+</tr>
+</table>
 
 <br>
 
