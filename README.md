@@ -13,7 +13,7 @@ and see how far you are in every week and every course.
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-0065bd)
 ![Built for TUM Moodle](https://img.shields.io/badge/built%20for-TUM%20Moodle-0065bd)
 
-[**Download**](../../releases/latest) · [Install](#-install) · [How to use](#-how-to-use) · [Settings](#-settings) · [Other Moodle sites](#-use-it-with-another-moodle)
+[**Download**](../../releases/latest) · [Install](#install) · [How to use](#how-to-use) · [Settings](#settings) · [Other Moodle sites](#use-it-with-another-moodle)
 
 <br>
 
@@ -23,17 +23,17 @@ and see how far you are in every week and every course.
 
 <br>
 
-## ✨ What you get
+## What you get
 
 | | |
 |---|---|
-| ☑️ **A checkbox on every item** | Files, recordings, links and assignments can be ticked off. Done items are struck through. |
-| 📊 **Progress everywhere** | A bar for the whole course, a badge on each week, and a thin line under each tab. |
-| 🙈 **Ignore what isn't work** | Announcement forums and surveys don't count. Ignore anything else per item, per course or everywhere. |
-| 🔄 **Synced** | Your checkmarks follow you to every computer where you are signed in to Chrome. |
-| 🔒 **No tracking** | The extension only runs on Moodle, has no server of its own and only stores what you ticked, in Chrome's own storage. |
+| **A checkbox on every item** | Files, recordings, links and assignments can be ticked off. Done items are struck through. |
+| **Progress everywhere** | A bar for the whole course, a badge on each week, and a thin line under each tab. |
+| **Ignore what isn't work** | Announcement forums and surveys don't count. Ignore anything else per item, per course or everywhere. |
+| **Synced** | Your checkmarks follow you to every computer where you are signed in to Chrome. |
+| **No tracking** | The extension only runs on Moodle, has no server of its own and only stores what you ticked, in Chrome's own storage. |
 
-## 🚀 Install
+## Install
 
 1. Download **`moodle-todo-chrome.zip`** from the [latest release](../../releases/latest) and unzip it. You get a folder.
 2. Open `chrome://extensions` in Chrome.
@@ -46,7 +46,7 @@ and see how far you are in every week and every course.
 
 **Updating:** download the new zip, replace the folder's contents and click the reload icon on Moodle Todo in `chrome://extensions`. Your checkmarks and rules are kept.
 
-## ✅ How to use
+## How to use
 
 Open any course on Moodle.
 
@@ -80,7 +80,7 @@ The menu has three levels:
 
 Ignored items keep their normal look. They just have no checkbox and don't count.
 
-## 🔧 Settings
+## Settings
 
 Click the extension icon to open the settings.
 
@@ -107,7 +107,7 @@ Click the extension icon to open the settings.
 > [!NOTE]
 > Removing the extension from Chrome deletes your checkmarks.
 
-## 🌍 Use it with another Moodle
+## Use it with another Moodle
 
 The extension only runs on `www.moodle.tum.de`. To use it with your university's Moodle you need to build it yourself. That takes a few minutes and needs [Node.js](https://nodejs.org) 20 or newer.
 
@@ -120,6 +120,6 @@ The extension only runs on `www.moodle.tum.de`. To use it with your university's
    npm run build
    ```
 
-4. Load the folder `dist/moodle-todo` in Chrome as described in [Install](#-install).
+4. Load the folder `dist/moodle-todo` in Chrome as described in [Install](#install).
 
 It is tested on Moodle 4.x course pages in the weekly, topics and "onetopic" (tabs) formats. If your Moodle looks very different, checkboxes might not appear.
