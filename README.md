@@ -16,7 +16,7 @@ Built for TUM Moodle (https://www.moodle.tum.de). Other Moodle sites work with a
 
 Keep the folder where it is. Chrome loads the extension from it, so deleting or moving the folder removes the extension.
 
-To update, download the new zip, replace the folder's contents and click the reload icon on Moodle Todo in `chrome://extensions`.
+To update, download the new zip, replace the folder's contents and click the reload icon on Moodle Todo in `chrome://extensions`. Your checkmarks and rules are kept.
 
 ## Use it
 
