@@ -10,14 +10,13 @@ function data(partial: Partial<OptionsData> = {}): OptionsData {
       { id: 7, data: { ...emptyCourse(), name: "Nano", typeRules: { url: "track" }, itemOverrides: { "1": "ignore", "2": "ignore" } } },
       { id: 8, data: { ...emptyCourse(), done: [1] } },
     ],
-    progress: [{ id: 7, done: 3, total: 3 }, { id: 8, done: 1, total: 8 }],
-    origin: "https://moodle.example",
+    version: "0.1.0",
     ...partial,
   };
 }
 
 function actions(): OptionsActions {
-  return { setGlobalType: vi.fn(), setCourseType: vi.fn(), resetCourseRules: vi.fn(), removeCourse: vi.fn() };
+  return { setGlobalType: vi.fn(), setCourseType: vi.fn(), resetCourseRules: vi.fn(), removeCourse: vi.fn(), manageExtension: vi.fn(), uninstall: vi.fn() };
 }
 
 describe("renderOptions", () => {
@@ -99,20 +98,20 @@ describe("renderOptions", () => {
     expect(root.querySelector<HTMLDetailsElement>('details[data-course="8"]')!.open).toBe(false);
   });
 
-  it("shows a collapsed progress panel with links that stays open across re-renders", () => {
+  it("has a collapsed Extension panel with manage and remove, kept open across re-renders", () => {
     const root = document.createElement("div");
-    renderOptions(root, data(), actions());
-    const panel = root.querySelector<HTMLDetailsElement>("details[data-panel=progress]")!;
+    const a = actions();
+    renderOptions(root, data(), a);
+    const panel = root.querySelector<HTMLDetailsElement>("details[data-panel=extension]")!;
     expect(panel.open).toBe(false);
-    const rows = Array.from(root.querySelectorAll<HTMLAnchorElement>(".progress-row"));
-    expect(rows.map((r) => [r.querySelector(".name")!.textContent, r.querySelector(".count")!.textContent])).toEqual([
-      ["Course 8", "1/8"], ["Nano", "3/3"],
-    ]);
-    expect(rows[0]!.href).toBe("https://moodle.example/course/view.php?id=8");
-    expect(rows[1]!.classList.contains("complete")).toBe(true);
+    expect(panel.textContent).toContain("Version 0.1.0");
+    panel.querySelector<HTMLButtonElement>('button[data-action="manage"]')!.click();
+    panel.querySelector<HTMLButtonElement>('button[data-action="uninstall"]')!.click();
+    expect(a.manageExtension).toHaveBeenCalled();
+    expect(a.uninstall).toHaveBeenCalled();
     panel.open = true;
-    renderOptions(root, data(), actions());
-    expect(root.querySelector<HTMLDetailsElement>("details[data-panel=progress]")!.open).toBe(true);
+    renderOptions(root, data(), a);
+    expect(root.querySelector<HTMLDetailsElement>("details[data-panel=extension]")!.open).toBe(true);
   });
 
   it("shows an empty state", () => {

@@ -6,10 +6,8 @@ export interface OptionsData {
   /** All types to show toggles for, already ordered. */
   types: string[];
   courses: Array<{ id: number; data: CourseData }>;
-  /** Tracked progress per course, from the seen caches. */
-  progress: Array<{ id: number; done: number; total: number }>;
-  /** Base URL for course links, e.g. https://www.moodle.tum.de */
-  origin: string;
+  /** Extension version, shown in the Extension panel. */
+  version: string;
 }
 
 type CourseEntry = OptionsData["courses"][number];
@@ -20,6 +18,10 @@ export interface OptionsActions {
   setCourseType(id: number, type: string, value: Rule | null): void;
   resetCourseRules(id: number): void;
   removeCourse(id: number): void;
+  /** Opens Chrome's page for this extension (site access, pinning, details). */
+  manageExtension(): void;
+  /** Asks Chrome to remove the extension; Chrome shows its own confirmation. */
+  uninstall(): void;
 }
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -37,7 +39,7 @@ const DESCRIPTIONS: Record<string, string> = {
 export function renderOptions(root: HTMLElement, data: OptionsData, actions: OptionsActions): void {
   // Re-rendering after every change must not collapse the course the user is editing.
   const open = new Set(Array.from(root.querySelectorAll<HTMLElement>("details[open][data-course]"), (d) => d.dataset.course));
-  const progressOpen = root.querySelector("details[open][data-panel=progress]") !== null;
+  const extensionOpen = root.querySelector("details[open][data-panel=extension]") !== null;
   root.replaceChildren();
   const doc = root.ownerDocument;
 
@@ -63,40 +65,31 @@ export function renderOptions(root: HTMLElement, data: OptionsData, actions: Opt
   for (const course of sorted) coursesSection.append(courseRow(doc, course, data, open.has(String(course.id)), actions));
   root.append(coursesSection);
 
-  if (sorted.length > 0) root.append(progressPanel(doc, sorted, data, progressOpen));
+  root.append(extensionPanel(doc, data, extensionOpen, actions));
 }
 
-function progressPanel(doc: Document, courses: CourseEntry[], data: OptionsData, open: boolean): HTMLElement {
-  const panel = el(doc, "details", "panel progress-panel") as HTMLDetailsElement;
-  panel.dataset.panel = "progress";
+function extensionPanel(doc: Document, data: OptionsData, open: boolean, actions: OptionsActions): HTMLElement {
+  const panel = el(doc, "details", "panel extension-panel") as HTMLDetailsElement;
+  panel.dataset.panel = "extension";
   panel.open = open;
   const summary = el(doc, "summary", null);
-  summary.append(el(doc, "h2", null, "Progress"), el(doc, "span", "summary-hint", "Click a course to open it on Moodle"));
+  summary.append(el(doc, "h2", null, "Extension"), el(doc, "span", "summary-hint", `Version ${data.version}`));
   panel.append(summary);
 
-  const list = el(doc, "ul", "progress-list");
-  for (const course of courses) {
-    const p = data.progress.find((x) => x.id === course.id) ?? { done: 0, total: 0 };
-    const link = el(doc, "a", "progress-row") as HTMLAnchorElement;
-    link.href = `${data.origin}/course/view.php?id=${course.id}`;
-    link.target = "_blank";
-    link.rel = "noopener";
-    if (p.total > 0 && p.done === p.total) link.classList.add("complete");
-    const top = el(doc, "span", "row-top");
-    top.append(
-      el(doc, "span", "name", courseTitle(course)),
-      el(doc, "span", "count", p.total > 0 ? `${p.done}/${p.total}` : "–"),
-    );
-    const bar = el(doc, "span", "bar");
-    const fill = el(doc, "span", "fill");
-    fill.style.width = `${p.total > 0 ? Math.round((p.done / p.total) * 100) : 0}%`;
-    bar.append(fill);
-    link.append(top, bar);
-    const item = el(doc, "li", null);
-    item.append(link);
-    list.append(item);
+  const rows: Array<[string, string, string, () => void, boolean]> = [
+    ["Manage extension", "Site access, pinning and details in Chrome", "manage", () => actions.manageExtension(), false],
+    ["Remove from Chrome", "Deletes the extension together with all checkmarks and rules", "uninstall", () => actions.uninstall(), true],
+  ];
+  for (const [title, desc, action, run, danger] of rows) {
+    const row = el(doc, "div", "type-row");
+    const text = el(doc, "div", "type-text");
+    text.append(el(doc, "span", "type-name", title), el(doc, "span", "type-desc", desc));
+    const b = button(doc, danger ? "Remove" : "Open", action, title);
+    if (danger) b.classList.add("danger");
+    b.addEventListener("click", run);
+    row.append(text, b);
+    panel.append(row);
   }
-  panel.append(list, el(doc, "p", "hint", "Counts include the items seen so far. Open a course once to complete its total."));
   return panel;
 }
 
