@@ -9,7 +9,8 @@ import type { Rule } from "../../src/types";
 const root = document.getElementById("app") as HTMLElement;
 
 async function refresh(): Promise<void> {
-  const [global, seenTypes, courses] = await Promise.all([getGlobal(), listSeenTypes(), listCourses()]);
+  const [global, courses] = await Promise.all([getGlobal(), listCourses()]);
+  const seenTypes = await listSeenTypes(global, courses);
   const extra = seenTypes.filter((t) => !KNOWN_TYPES.includes(t)).sort();
   renderOptions(root, { global, types: [...KNOWN_TYPES, ...extra], courses, version: browser.runtime.getManifest().version }, {
     setGlobalType: (type, value: Rule) => run(updateGlobal((g) => setGlobalTypeRule(g, type, value))),

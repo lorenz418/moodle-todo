@@ -1,6 +1,8 @@
 import type { CourseProgress, Progress } from "../model/progress";
 import { LAYERS, menuState, resolveState } from "../model/rules";
 import { typeName, typeNamePlural } from "../model/typeNames";
+import { ITEM_SELECTOR } from "../parse/page";
+import { NON_TASK_TYPES } from "../types";
 import type { CourseData, GlobalData, Layer, ParsedItem, ParsedPage, Rule, RuleItem } from "../types";
 
 export interface RenderModel {
@@ -26,16 +28,32 @@ const DOTS_SVG =
 
 /** Renders the whole page from the model. Safe to call repeatedly. */
 export function render(doc: Document, model: RenderModel): void {
+  let created = false;
   for (const section of model.page.sections) {
-    for (const item of section.items) renderItem(doc, item, model);
+    for (const item of section.items) created = renderItem(doc, item, model) || created;
     renderSectionBadge(doc, section.headingEl, model.progress?.sections.get(section.num));
   }
   for (const tab of model.page.tabs ?? []) {
     renderBadge(doc, tab.el, null, model.progress?.sections.get(tab.num));
   }
   renderProgressBar(doc, model);
-  alignControls(model.page);
-  if (!observers.has(doc)) watchLayout(doc, model.page);
+  // State changes do not move the controls; measuring is only needed for new ones.
+  const pageChanged = layouts.get(doc)?.page !== model.page;
+  if (created || pageChanged) alignControls(model.page);
+  if (pageChanged) watchLayout(doc, model.page);
+}
+
+const TASK_ITEM_SELECTOR = ITEM_SELECTOR + [...NON_TASK_TYPES].map((t) => `:not(.modtype_${t})`).join("");
+
+/** Activities on the page that have no checkbox column, e.g. after Moodle re-rendered them. */
+export function countUncontrolled(doc: Document): number {
+  let count = 0;
+  for (const el of doc.querySelectorAll(TASK_ITEM_SELECTOR)) if (!el.querySelector(".mtd-check")) count++;
+  return count;
+}
+
+function hostOf(item: ParsedItem): HTMLElement {
+  return item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
 }
 
 /** Installs delegated event handlers once per document. */
@@ -100,9 +118,11 @@ function closeAllMenus(doc: Document): void {
   });
 }
 
-function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
+/** Returns true when it had to create the controls (first render, or Moodle replaced the row). */
+function renderItem(doc: Document, item: ParsedItem, model: RenderModel): boolean {
   const state = resolveState(item, model.course, model.global);
-  const host = item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
+  const host = hostOf(item);
+  let created = false;
   const grid = host.querySelector<HTMLElement>(":scope > .activity-grid");
 
   item.el.classList.toggle("mtd-done", state === "done");
@@ -110,6 +130,7 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
 
   let check = host.querySelector<HTMLElement>(":scope > .mtd-check");
   if (!check) {
+    created = true;
     check = doc.createElement("span");
     check.className = "mtd-check";
     if (grid) host.insertBefore(check, grid);
@@ -141,6 +162,7 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
 
   let wrap = host.querySelector<HTMLElement>(":scope > .mtd-menu-wrap");
   if (!wrap) {
+    created = true;
     wrap = doc.createElement("span");
     wrap.className = "mtd-menu-wrap";
     const menu = doc.createElement("div");
@@ -159,6 +181,7 @@ function renderItem(doc: Document, item: ParsedItem, model: RenderModel): void {
   wrap.dataset.cmid = String(item.cmid);
   wrap.dataset.type = item.type;
   renderMenuItems(doc, wrap.querySelector(".mtd-menu")!, item, model);
+  return created;
 }
 
 function renderMenuItems(doc: Document, menu: Element, item: RuleItem, model: RenderModel): void {
@@ -289,7 +312,7 @@ function alignControls(page: ParsedPage): void {
   const rows: Array<{ els: HTMLElement[]; icon: HTMLElement }> = [];
   for (const section of page.sections) {
     for (const item of section.items) {
-      const host = item.el.querySelector<HTMLElement>(":scope .activity-item") ?? item.el;
+      const host = hostOf(item);
       const icon = host.querySelector<HTMLElement>(".activity-icon");
       const els = [":scope > .mtd-check", ":scope > .mtd-menu-wrap"]
         .map((sel) => host.querySelector<HTMLElement>(sel))
@@ -312,18 +335,22 @@ function alignControls(page: ParsedPage): void {
   }
 }
 
-const observers = new WeakMap<Document, ResizeObserver>();
+const layouts = new WeakMap<Document, { page: ParsedPage; observer: ResizeObserver | null }>();
 
 /** Re-aligns when a section is expanded or the layout changes after the first render. */
 function watchLayout(doc: Document, page: ParsedPage): void {
-  const RO = doc.defaultView?.ResizeObserver;
-  if (!RO) return;
-  observers.get(doc)?.disconnect();
+  layouts.get(doc)?.observer?.disconnect();
+  const view = doc.defaultView;
+  const RO = view?.ResizeObserver;
+  if (!view || !RO) {
+    layouts.set(doc, { page, observer: null });
+    return;
+  }
   let queued = false;
   const observer = new RO(() => {
     if (queued) return;
     queued = true;
-    doc.defaultView!.requestAnimationFrame(() => {
+    view.requestAnimationFrame(() => {
       queued = false;
       alignControls(page);
     });
@@ -332,5 +359,5 @@ function watchLayout(doc: Document, page: ParsedPage): void {
     const el = section.items[0]?.el.closest("li.section") ?? null;
     if (el) observer.observe(el);
   }
-  observers.set(doc, observer);
+  layouts.set(doc, { page, observer });
 }

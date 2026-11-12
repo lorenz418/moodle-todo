@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import { App } from "../src/app";
 import { parsePage } from "../src/parse/page";
-import { getCourse, getGlobal, getSeen, setSeen, updateCourse } from "../src/storage/store";
+import { getCourse, getGlobal, getSeen, removeCourse, setSeen, updateCourse } from "../src/storage/store";
 import { loadPage } from "./fixtures";
 
 function stateResponse(cms: Array<{ id: number; module: string; sectionid: number }>, sections: Array<{ id: number; number: number }>) {
@@ -187,5 +187,109 @@ describe("App robustness", () => {
     expect(setSpy).not.toHaveBeenCalled();
     expect(doc.querySelector(".mtd-progress-message")!.textContent).toContain("Extension was updated");
     expect((await getCourse(120985)).done).toEqual([]);
+  });
+});
+
+describe("App review fixes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const failingFetch = () => vi.stubGlobal("fetch", vi.fn(async () => new Response("x", { status: 500 })));
+  const check = (doc: Document, id: number) => {
+    const box = doc.getElementById(`module-${id}`)!.querySelector<HTMLInputElement>(".mtd-checkbox")!;
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    return box;
+  };
+
+  it("never unticks a later checkbox while an earlier write lands", async () => {
+    failingFetch();
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+    check(doc, 3979856);
+    const second = check(doc, 3985853);
+    for (let i = 0; i < 50; i++) {
+      await Promise.resolve();
+      expect(second.checked).toBe(true);
+    }
+    await flush();
+    expect(second.checked).toBe(true);
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("2 of 8 done");
+  });
+
+  it("shows the cached counts before the state call returns", async () => {
+    let respond!: (r: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { respond = resolve; })));
+    await setSeen(120985, { "3979856": { section: 1, type: "resource" }, "777": { section: 9, type: "resource" } });
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    const started = app.start();
+    await flush();
+    expect(doc.querySelector(".mtd-progress-text")!.textContent).toBe("0 of 9 done");
+    expect(doc.querySelector(".mtd-progress")!.classList.contains("mtd-loading")).toBe(false);
+    respond(new Response("x", { status: 500 }));
+    await started;
+  });
+
+  it("stores the course name from a section page when the title confirms it", async () => {
+    failingFetch();
+    const doc = loadPage("thermoOct27");
+    const page = parsePage(doc)!;
+    const app = new App(doc, page, { isCoursePage: false, origin: "https://x" });
+    await app.start();
+    await flush();
+    expect((await getCourse(page.courseId)).name).toBe("Engineering Thermodynamics (WiSe 26/27)");
+  });
+
+  it("restores the course name when the course entry is recreated", async () => {
+    failingFetch();
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+    await flush();
+    await removeCourse(120985); // "Clear all" in the settings
+    await flush();
+    check(doc, 3979856);
+    await flush();
+    expect(await getCourse(120985)).toMatchObject({ name: "Nanotechnologie", done: [3979856] });
+  });
+
+  it("badges a page section whose items the state files under another section", async () => {
+    // Like a subsection's own page: the page says section 1, the state says the parent is section 99.
+    vi.stubGlobal("fetch", vi.fn(async () => stateResponse(
+      [{ id: 3979856, module: "resource", sectionid: 50 }, { id: 3985853, module: "lti", sectionid: 50 }],
+      [{ id: 50, number: 99 }],
+    )));
+    const doc = loadPage("nano");
+    const page = parsePage(doc)!;
+    const app = new App(doc, page, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+    check(doc, 3979856);
+    const badge = page.sections[1]!.headingEl!.closest("li.section")!.querySelector(".mtd-badge")!;
+    expect(badge.textContent).toBe("1/2");
+  });
+
+  it("gives controls back to an activity Moodle re-rendered", async () => {
+    failingFetch();
+    const doc = loadPage("nano");
+    const app = new App(doc, parsePage(doc)!, { isCoursePage: true, origin: "https://x" });
+    await app.start();
+
+    const old = doc.getElementById("module-3979856")!;
+    const fresh = old.cloneNode(true) as HTMLElement;
+    fresh.querySelectorAll(".mtd-check, .mtd-menu-wrap").forEach((n) => n.remove());
+    old.replaceWith(fresh);
+    expect(fresh.querySelector(".mtd-checkbox")).toBeNull();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(fresh.querySelector(".mtd-checkbox")).not.toBeNull();
+    expect(fresh.querySelector(".mtd-menu-btn")).not.toBeNull();
+
+    check(doc, 3979856);
+    await flush();
+    expect(fresh.classList.contains("mtd-done")).toBe(true);
+    expect((await getCourse(120985)).done).toEqual([3979856]);
   });
 });

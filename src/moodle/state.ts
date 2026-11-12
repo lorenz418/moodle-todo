@@ -1,9 +1,7 @@
-// TODO(spike): confirm field names against examples/course-state-125111.json
-import type { SeenCache } from "../types";
+// Field names follow Moodle 4.x's core_courseformat state exporters; checked live against TUM Moodle.
+import { NON_TASK_TYPES, type SeenCache } from "../types";
 
 export const STATE_TIMEOUT_MS = 10_000;
-
-const SKIPPED_MODULES = new Set(["label", "subsection"]);
 
 /** Moodle's PHP exporters send ids as numbers or numeric strings depending on the version. */
 type Id = number | string;
@@ -73,7 +71,7 @@ export function parseCourseState(body: unknown): SeenCache | null {
     const seen: SeenCache = {};
     for (const cm of state.cm) {
       const id = toInt(cm.id);
-      if (id === null || typeof cm.module !== "string" || SKIPPED_MODULES.has(cm.module)) continue;
+      if (id === null || typeof cm.module !== "string" || NON_TASK_TYPES.has(cm.module)) continue;
       const section = topLevelNumber(toInt(cm.sectionid));
       if (section === null) continue;
       seen[String(id)] = { section, type: cm.module };

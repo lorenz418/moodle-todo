@@ -1,4 +1,4 @@
-import type { CourseData, GlobalData, SeenCache } from "../types";
+import type { CourseData, GlobalData, RuleItem, SeenCache } from "../types";
 import { resolveState } from "./rules";
 
 export interface Progress {
@@ -28,4 +28,16 @@ export function computeProgress(seen: SeenCache, course: CourseData, global: Glo
     sections.set(info.section, section);
   }
   return { course: total, sections };
+}
+
+/** Progress over an explicit list of items, for a page section the seen cache files elsewhere. */
+export function itemsProgress(items: RuleItem[], course: CourseData, global: GlobalData): Progress {
+  const progress: Progress = { done: 0, total: 0 };
+  for (const item of items) {
+    const state = resolveState(item, course, global);
+    if (state === "ignored") continue;
+    progress.total += 1;
+    if (state === "done") progress.done += 1;
+  }
+  return progress;
 }

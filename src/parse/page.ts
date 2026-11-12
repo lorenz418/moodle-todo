@@ -1,8 +1,7 @@
-import type { ParsedItem, ParsedPage, ParsedSection, ParsedTab } from "../types";
+import { NON_TASK_TYPES, type ParsedItem, type ParsedPage, type ParsedSection, type ParsedTab } from "../types";
 
 const SECTION_SELECTOR = 'li.section[data-for="section"]';
-const ITEM_SELECTOR = 'li.activity[data-for="cmitem"]';
-const SKIPPED_TYPES = new Set(["label", "subsection"]);
+export const ITEM_SELECTOR = 'li.activity[data-for="cmitem"]';
 
 /**
  * Reads a Moodle course page. Returns null when the document is not a
@@ -34,6 +33,17 @@ export function parsePage(doc: Document): ParsedPage | null {
   };
 }
 
+/**
+ * The course name on pages other than the course home, where the h1 may be a
+ * section name. Trusted only when the h1 matches the course part of the
+ * document title ("Abschnitt: Oct 27 | <course> | TUM").
+ */
+export function courseNameFromTitle(doc: Document): string {
+  const parts = doc.title.split(" | ");
+  const h1 = doc.querySelector("h1")?.textContent?.trim() ?? "";
+  return parts.length >= 3 && h1 !== "" && parts[1]!.trim() === h1 ? h1 : "";
+}
+
 function strictInt(value: string | undefined | null): number | null {
   return value !== undefined && value !== null && /^\d+$/.test(value) ? Number(value) : null;
 }
@@ -61,7 +71,7 @@ function parseItem(el: HTMLElement, stats: { skipped: number }): ParsedItem | nu
     stats.skipped++;
     return null;
   }
-  if (SKIPPED_TYPES.has(type)) return null;
+  if (NON_TASK_TYPES.has(type)) return null;
   const name =
     el.querySelector<HTMLElement>(".activity-item[data-activityname]")?.dataset.activityname?.trim() ||
     instanceName(el) ||

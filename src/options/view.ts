@@ -40,8 +40,11 @@ export function renderOptions(root: HTMLElement, data: OptionsData, actions: Opt
   // Re-rendering after every change must not collapse the course the user is editing.
   const open = new Set(Array.from(root.querySelectorAll<HTMLElement>("details[open][data-course]"), (d) => d.dataset.course));
   const extensionOpen = root.querySelector("details[open][data-panel=extension]") !== null;
-  root.replaceChildren();
   const doc = root.ownerDocument;
+  // The page is rebuilt after every change; without this a keyboard user would lose their place.
+  const active = doc.activeElement;
+  const focused = active instanceof HTMLElement && root.contains(active) ? focusKey(active) : null;
+  root.replaceChildren();
 
   const globalSection = el(doc, "section", "panel");
   globalSection.append(
@@ -66,6 +69,18 @@ export function renderOptions(root: HTMLElement, data: OptionsData, actions: Opt
   root.append(coursesSection);
 
   root.append(extensionPanel(doc, data, extensionOpen, actions));
+
+  if (focused) {
+    const target = Array.from(root.querySelectorAll<HTMLElement>("input, button, summary")).find((el) => focusKey(el) === focused);
+    target?.focus();
+  }
+}
+
+/** Identifies a control across re-renders: its kind, the course or panel it belongs to, and its own name. */
+function focusKey(el: HTMLElement): string {
+  const scope = el.closest<HTMLElement>("[data-course-row], [data-panel]");
+  const own = el instanceof HTMLInputElement ? `${el.name}=${el.value}` : (el.dataset.action ?? "");
+  return [el.tagName, scope?.dataset.courseRow ?? scope?.dataset.panel ?? "", own].join("|");
 }
 
 function extensionPanel(doc: Document, data: OptionsData, open: boolean, actions: OptionsActions): HTMLElement {
@@ -137,6 +152,7 @@ function segmented(
 
 function courseRow(doc: Document, course: CourseEntry, data: OptionsData, open: boolean, actions: OptionsActions): HTMLElement {
   const card = el(doc, "div", "course");
+  card.dataset.courseRow = String(course.id);
   const head = el(doc, "div", "course-head");
   const info = el(doc, "div", "course-info");
   info.append(el(doc, "h3", null, courseTitle(course)));

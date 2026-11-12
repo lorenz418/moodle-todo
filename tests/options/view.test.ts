@@ -114,6 +114,27 @@ describe("renderOptions", () => {
     expect(root.querySelector<HTMLDetailsElement>("details[data-panel=extension]")!.open).toBe(true);
   });
 
+  it("keeps keyboard focus on the same control across re-renders", () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    renderOptions(root, data(), actions());
+    root.querySelector<HTMLInputElement>('input[data-type="forum"][value="track"]:not([data-course])')!.focus();
+    renderOptions(root, data(), actions());
+    const active = document.activeElement as HTMLInputElement;
+    expect([active.dataset.type, active.value, active.dataset.course]).toEqual(["forum", "track", undefined]);
+
+    root.querySelector<HTMLDetailsElement>('details[data-course="8"]')!.open = true;
+    root.querySelector<HTMLInputElement>('input[data-course="8"][data-type="resource"][value="ignore"]')!.focus();
+    renderOptions(root, data(), actions());
+    const again = document.activeElement as HTMLInputElement;
+    expect([again.dataset.course, again.dataset.type, again.value]).toEqual(["8", "resource", "ignore"]);
+
+    root.querySelectorAll<HTMLButtonElement>('button[data-action="reset-rules"]')[1]!.focus();
+    renderOptions(root, data(), actions());
+    expect(document.activeElement).toBe(root.querySelectorAll('button[data-action="reset-rules"]')[1]);
+    root.remove();
+  });
+
   it("shows an empty state", () => {
     const root = document.createElement("div");
     renderOptions(root, data({ courses: [] }), actions());

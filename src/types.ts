@@ -49,6 +49,9 @@ export interface ParsedPage {
   tabs: ParsedTab[] | null;
 }
 
+/** Module types that are page furniture, never tasks. Used by the page parser and the state parser alike. */
+export const NON_TASK_TYPES: ReadonlySet<string> = new Set(["label", "subsection"]);
+
 export const DEFAULT_GLOBAL: GlobalData = {
   typeRules: { forum: "ignore", choice: "ignore" },
 };
